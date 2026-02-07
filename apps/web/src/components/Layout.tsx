@@ -42,7 +42,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <option value="contrast">High contrast</option>
             </select>
             {!profile ? (
-              <button className="target-size rounded bg-base-action px-3 text-base-actionText" onClick={() => { void login().catch(() => undefined); }}>
+              <button className="target-size rounded bg-base-action px-3 text-base-actionText" onClick={() => { void login(); }}>
                 Sign in with Microsoft 365
               </button>
             ) : (

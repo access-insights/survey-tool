@@ -104,11 +104,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error('Azure auth is not configured');
         }
         setLoading(true);
-        const result = await msalApp.loginPopup(loginRequest);
-        if (result.account) msalApp.setActiveAccount(result.account);
-        const nextToken = extractToken(result);
-        setToken(nextToken);
-        await loadProfile(nextToken);
+        try {
+          const result = await msalApp.loginPopup(loginRequest);
+          if (result.account) msalApp.setActiveAccount(result.account);
+          const nextToken = extractToken(result);
+          setToken(nextToken);
+          await loadProfile(nextToken);
+        } catch {
+          await msalApp.loginRedirect(loginRequest);
+        }
       },
       logout: async () => {
         if (!msalApp) return;
