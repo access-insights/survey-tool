@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" role="img" aria-labelledby="title desc">
+  <title id="title">Access Insights logo</title>
+  <desc id="desc">Blue circular icon with Access Insights wordmark</desc>
+  <defs>
+    <linearGradient id="innerBlue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#24A7E6" />
+      <stop offset="100%" stop-color="#1075BE" />
+    </linearGradient>
+  </defs>
+  <g transform="translate(20,20)">
+    <circle cx="140" cy="140" r="132" fill="none" stroke="#0A3E73" stroke-width="34" />
+    <circle cx="140" cy="140" r="82" fill="none" stroke="url(#innerBlue)" stroke-width="34" />
+    <path d="M70 250 L112 210 L147 245 L105 287 Z" fill="url(#innerBlue)" />
+  </g>
+  <g fill="#151922" font-family="Arial, Helvetica, sans-serif" font-weight="700">
+    <text x="360" y="140" font-size="96" letter-spacing="2">ACCESS</text>
+    <text x="360" y="250" font-size="96" letter-spacing="2">INSIGHTS</text>
+  </g>
+</svg>

@@ -1,0 +1,28 @@
+{
+  "name": "survey-tool",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "npm run build --workspace web",
+    "lint": "npm run lint --workspace web",
+    "test": "npm run test --workspace web",
+    "test:a11y": "npm run test:a11y --workspace web",
+    "test:e2e": "npm run test:e2e --workspace web",
+    "install:all": "npm install --workspaces",
+    "prepare": "husky || true"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.38.1"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.48.1",
+    "jsonwebtoken": "^9.0.2",
+    "zod": "^3.24.1",
+    "@netlify/functions": "^3.0.2",
+    "jose": "^5.9.6"
+  }
+}

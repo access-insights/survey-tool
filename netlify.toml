@@ -1,0 +1,21 @@
+[build]
+  command = "npm run build"
+  publish = "apps/web/dist"
+  functions = "netlify/functions"
+
+[dev]
+  command = "npm run dev --workspace web"
+  targetPort = 5173
+  port = 8888
+  publish = "apps/web/dist"
+  autoLaunch = false
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

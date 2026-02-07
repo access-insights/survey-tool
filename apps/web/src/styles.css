@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: #f4f8f7;
+  --color-surface: #ffffff;
+  --color-text: #0d1f1b;
+  --color-muted: #33544d;
+  --color-border: #6f8d86;
+  --color-action: #005c48;
+  --color-action-text: #ffffff;
+  --color-danger: #a0002b;
+}
+
+[data-theme='dark'] {
+  --color-bg: #111716;
+  --color-surface: #1a2321;
+  --color-text: #e4f0ed;
+  --color-muted: #b2ccc5;
+  --color-border: #6f8d86;
+  --color-action: #4de2be;
+  --color-action-text: #06261f;
+  --color-danger: #ff7da2;
+}
+
+[data-theme='contrast'] {
+  --color-bg: Canvas;
+  --color-surface: Canvas;
+  --color-text: CanvasText;
+  --color-muted: CanvasText;
+  --color-border: CanvasText;
+  --color-action: Highlight;
+  --color-action-text: HighlightText;
+  --color-danger: LinkText;
+}
+
+* {
+  scrollbar-color: var(--color-border) var(--color-bg);
+}
+
+body {
+  margin: 0;
+  font-family: 'Atkinson Hyperlegible', 'Segoe UI', sans-serif;
+  background: radial-gradient(circle at top right, rgba(0, 92, 72, 0.15), transparent 45%), var(--color-bg);
+  color: var(--color-text);
+}
+
+a {
+  color: var(--color-action);
+}
+
+@media (forced-colors: active) {
+  * {
+    forced-color-adjust: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-action);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+  width: auto;
+  height: auto;
+  padding: 0.75rem;
+  background: var(--color-surface);
+  border: 2px solid var(--color-action);
+  z-index: 999;
+}
+
+.target-size {
+  min-height: 44px;
+  min-width: 44px;
+}

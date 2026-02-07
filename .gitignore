@@ -1,0 +1,14 @@
+node_modules
+.env
+.env.*
+!.env.example
+apps/web/.env.local
+apps/web/dist
+.netlify
+playwright-report
+test-results
+coverage
+
+*.tsbuildinfo
+
+.env2
