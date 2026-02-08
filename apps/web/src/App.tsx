@@ -1,7 +1,6 @@
 import { Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { AccessibilityPage } from './pages/AccessibilityPage';
 import { AdminPage } from './pages/AdminPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { LandingPage } from './pages/LandingPage';
@@ -50,7 +49,6 @@ export default function App() {
           }
         />
         <Route path="/participant/:inviteToken" element={<ParticipantPage />} />
-        <Route path="/accessibility" element={<AccessibilityPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Layout>

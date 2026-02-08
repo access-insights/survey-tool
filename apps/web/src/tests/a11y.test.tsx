@@ -1,22 +1,29 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
-import { ThemeProvider } from '../lib/theme';
-import { AccessibilityPage } from '../pages/AccessibilityPage';
+import { LandingPage } from '../pages/LandingPage';
+
+vi.mock('../lib/auth', () => ({
+  useAuth: () => ({
+    profile: null,
+    loading: false,
+    login: async () => undefined,
+    logout: async () => undefined,
+    refreshProfile: async () => undefined,
+    token: null
+  })
+}));
 
 describe('a11y smoke checks', () => {
-  it('renders accessibility statement with key landmarks', () => {
+  it('renders a single clear login action', () => {
     render(
       <MemoryRouter>
-        <ThemeProvider>
-          <main>
-            <AccessibilityPage />
-          </main>
-        </ThemeProvider>
+        <main>
+          <LandingPage />
+        </main>
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('heading', { name: /accessibility statement/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /accessibility@accessinsights.org/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /log in to access insights survey tool/i })).toBeInTheDocument();
   });
 });

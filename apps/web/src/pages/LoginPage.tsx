@@ -9,11 +9,9 @@ export function LoginPage() {
   }
 
   return (
-    <section className="max-w-xl space-y-4">
-      <h1 className="text-2xl font-bold">Sign in with Microsoft 365</h1>
-      <p>Use your `@accessinsights.net` work account to continue.</p>
-      <button className="target-size rounded bg-base-action px-4 py-2 text-base-actionText" onClick={() => { void login(); }}>
-        Open Microsoft 365 sign in
+    <section className="flex min-h-[55vh] items-center justify-center">
+      <button className="target-size rounded border border-base-border px-5 py-3" onClick={() => { void login(); }}>
+        Log in to Access Insights Survey Tool
       </button>
     </section>
   );

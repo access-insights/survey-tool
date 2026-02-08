@@ -13,26 +13,17 @@
   --color-danger: #a0002b;
 }
 
-[data-theme='dark'] {
-  --color-bg: #111716;
-  --color-surface: #1a2321;
-  --color-text: #e4f0ed;
-  --color-muted: #b2ccc5;
-  --color-border: #6f8d86;
-  --color-action: #4de2be;
-  --color-action-text: #06261f;
-  --color-danger: #ff7da2;
-}
-
-[data-theme='contrast'] {
-  --color-bg: Canvas;
-  --color-surface: Canvas;
-  --color-text: CanvasText;
-  --color-muted: CanvasText;
-  --color-border: CanvasText;
-  --color-action: Highlight;
-  --color-action-text: HighlightText;
-  --color-danger: LinkText;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #111716;
+    --color-surface: #1a2321;
+    --color-text: #e4f0ed;
+    --color-muted: #b2ccc5;
+    --color-border: #6f8d86;
+    --color-action: #4de2be;
+    --color-action-text: #06261f;
+    --color-danger: #ff7da2;
+  }
 }
 
 * {
@@ -42,6 +33,7 @@
 body {
   margin: 0;
   font-family: 'Atkinson Hyperlegible', 'Segoe UI', sans-serif;
+  font-weight: 400;
   background: radial-gradient(circle at top right, rgba(0, 92, 72, 0.15), transparent 45%), var(--color-bg);
   color: var(--color-text);
 }
@@ -50,7 +42,32 @@ a {
   color: var(--color-action);
 }
 
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+strong,
+b,
+th,
+legend,
+label {
+  font-weight: 400 !important;
+}
+
 @media (forced-colors: active) {
+  :root {
+    --color-bg: Canvas;
+    --color-surface: Canvas;
+    --color-text: CanvasText;
+    --color-muted: CanvasText;
+    --color-border: CanvasText;
+    --color-action: Highlight;
+    --color-action-text: HighlightText;
+    --color-danger: LinkText;
+  }
+
   * {
     forced-color-adjust: auto;
   }
