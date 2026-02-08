@@ -35,6 +35,29 @@ const questionTypes: { value: QuestionType; label: string }[] = [
   { value: 'consent', label: 'Consent checkbox' }
 ];
 
+const optionQuestionTypes: QuestionType[] = ['single_choice', 'multiple_choice', 'dropdown', 'likert'];
+const numericQuestionTypes: QuestionType[] = ['number'];
+const textQuestionTypes: QuestionType[] = ['short_text', 'long_text', 'email', 'phone'];
+const regexQuestionTypes: QuestionType[] = ['short_text', 'long_text', 'email', 'phone'];
+
+const isOptionType = (type: QuestionType) => optionQuestionTypes.includes(type);
+const isNumericType = (type: QuestionType) => numericQuestionTypes.includes(type);
+const isTextType = (type: QuestionType) => textQuestionTypes.includes(type);
+const isRegexType = (type: QuestionType) => regexQuestionTypes.includes(type);
+
+function normalizeQuestionByType(question: Question, nextType: QuestionType): Question {
+  return {
+    ...question,
+    type: nextType,
+    options: isOptionType(nextType) ? (question.options?.length ? question.options : ['Option 1', 'Option 2']) : undefined,
+    min: isNumericType(nextType) ? question.min : undefined,
+    max: isNumericType(nextType) ? question.max : undefined,
+    regex: isRegexType(nextType) ? question.regex : undefined,
+    maxLength: isTextType(nextType) ? question.maxLength : undefined,
+    randomizeOptions: isOptionType(nextType) ? question.randomizeOptions : false
+  };
+}
+
 function makeQuestion(): Question {
   const id = crypto.randomUUID();
   return {
@@ -115,8 +138,6 @@ export function SurveyBuilderPage() {
       .then((result) => setInvites(result.invites))
       .catch((error: Error) => setStatus(error.message));
   }, [surveyId, token, reset]);
-
-  const optionsQuestionTypes = useMemo(() => new Set(['single_choice', 'multiple_choice', 'dropdown', 'likert']), []);
 
   const persistDraft = async (values: SurveyForm) => {
     if (!token) return null;
@@ -281,7 +302,7 @@ export function SurveyBuilderPage() {
                   <select
                     className="target-size w-full rounded border border-base-border bg-base-bg px-2"
                     value={question.type}
-                    onChange={(e) => updateQuestion(question.id, (current) => ({ ...current, type: e.target.value as QuestionType }))}
+                    onChange={(e) => updateQuestion(question.id, (current) => normalizeQuestionByType(current, e.target.value as QuestionType))}
                   >
                     {questionTypes.map((type) => (
                       <option key={type.value} value={type.value}>
@@ -310,7 +331,7 @@ export function SurveyBuilderPage() {
                 />
               </label>
 
-              {optionsQuestionTypes.has(question.type) && (
+              {isOptionType(question.type) && (
                 <label className="block" title="List answer options, one option per line.">
                   <span className="mb-1 block">Options (one per line)</span>
                   <textarea
@@ -329,28 +350,32 @@ export function SurveyBuilderPage() {
                 </label>
               )}
 
-              <div className="grid gap-3 md:grid-cols-3">
-                <label className="block" title="Minimum numeric value accepted.">
-                  <span className="mb-1 block">Min</span>
-                  <input
-                    type="number"
-                    className="target-size w-full rounded border border-base-border bg-base-bg px-2"
-                    value={question.min ?? ''}
-                    onChange={(e) => updateQuestion(question.id, (current) => ({ ...current, min: e.target.value ? Number(e.target.value) : undefined }))}
-                  />
-                </label>
+              {isNumericType(question.type) && (
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="block md:max-w-[12rem]" title="Minimum numeric value accepted.">
+                    <span className="mb-1 block">Min</span>
+                    <input
+                      type="number"
+                      className="target-size w-full rounded border border-base-border bg-base-bg px-2"
+                      value={question.min ?? ''}
+                      onChange={(e) => updateQuestion(question.id, (current) => ({ ...current, min: e.target.value ? Number(e.target.value) : undefined }))}
+                    />
+                  </label>
 
-                <label className="block" title="Maximum numeric value accepted.">
-                  <span className="mb-1 block">Max</span>
-                  <input
-                    type="number"
-                    className="target-size w-full rounded border border-base-border bg-base-bg px-2"
-                    value={question.max ?? ''}
-                    onChange={(e) => updateQuestion(question.id, (current) => ({ ...current, max: e.target.value ? Number(e.target.value) : undefined }))}
-                  />
-                </label>
+                  <label className="block md:max-w-[12rem]" title="Maximum numeric value accepted.">
+                    <span className="mb-1 block">Max</span>
+                    <input
+                      type="number"
+                      className="target-size w-full rounded border border-base-border bg-base-bg px-2"
+                      value={question.max ?? ''}
+                      onChange={(e) => updateQuestion(question.id, (current) => ({ ...current, max: e.target.value ? Number(e.target.value) : undefined }))}
+                    />
+                  </label>
+                </div>
+              )}
 
-                <label className="block" title="Regular expression pattern for text validation, such as ^[A-Za-z]+$.">
+              {isRegexType(question.type) && (
+                <label className="block md:max-w-xl" title="Regular expression pattern for text validation, such as ^[A-Za-z]+$.">
                   <span className="mb-1 block">Regex</span>
                   <input
                     className="target-size w-full rounded border border-base-border bg-base-bg px-2"
@@ -358,7 +383,7 @@ export function SurveyBuilderPage() {
                     onChange={(e) => updateQuestion(question.id, (current) => ({ ...current, regex: e.target.value || undefined }))}
                   />
                 </label>
-              </div>
+              )}
 
               <div className="grid gap-3 md:grid-cols-3">
                 <label className="flex items-center gap-2" title="Mark this answer as personally identifying information.">
@@ -370,24 +395,28 @@ export function SurveyBuilderPage() {
                   Mark as PII
                 </label>
 
-                <label className="flex items-center gap-2" title="Shuffle answer options for each participant.">
-                  <input
-                    type="checkbox"
-                    checked={question.randomizeOptions ?? false}
-                    onChange={(e) => updateQuestion(question.id, (current) => ({ ...current, randomizeOptions: e.target.checked }))}
-                  />
-                  Randomize options
-                </label>
+                {isOptionType(question.type) && (
+                  <label className="flex items-center gap-2" title="Shuffle answer options for each participant.">
+                    <input
+                      type="checkbox"
+                      checked={question.randomizeOptions ?? false}
+                      onChange={(e) => updateQuestion(question.id, (current) => ({ ...current, randomizeOptions: e.target.checked }))}
+                    />
+                    Randomize options
+                  </label>
+                )}
 
-                <label className="block" title="Maximum character count allowed for text responses.">
-                  <span className="mb-1 block">Max chars</span>
-                  <input
-                    type="number"
-                    className="target-size w-full rounded border border-base-border bg-base-bg px-2"
-                    value={question.maxLength ?? ''}
-                    onChange={(e) => updateQuestion(question.id, (current) => ({ ...current, maxLength: e.target.value ? Number(e.target.value) : undefined }))}
-                  />
-                </label>
+                {isTextType(question.type) && (
+                  <label className="block md:max-w-[12rem]" title="Maximum character count allowed for text responses.">
+                    <span className="mb-1 block">Max chars</span>
+                    <input
+                      type="number"
+                      className="target-size w-full rounded border border-base-border bg-base-bg px-2"
+                      value={question.maxLength ?? ''}
+                      onChange={(e) => updateQuestion(question.id, (current) => ({ ...current, maxLength: e.target.value ? Number(e.target.value) : undefined }))}
+                    />
+                  </label>
+                )}
               </div>
 
               <fieldset className="rounded border border-base-border p-2">

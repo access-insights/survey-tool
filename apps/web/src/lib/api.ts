@@ -29,6 +29,7 @@ export const api = {
   listUsers: (token: string) => apiFetch<{ users: UserProfile[] }>('listUsers', token),
   setRole: (token: string, userId: string, role: string) => apiFetch<{ ok: true }>('setRole', token, { userId, role }),
   listSurveys: (token: string) => apiFetch<{ surveys: Survey[] }>('listSurveys', token),
+  archiveSurvey: (token: string, surveyId: string) => apiFetch<{ ok: true }>('archiveSurvey', token, { surveyId }),
   deleteSurvey: (token: string, surveyId: string) => apiFetch<{ ok: true }>('deleteSurvey', token, { surveyId }),
   listAudit: (token: string) => apiFetch<{ logs: AuditEntry[] }>('listAudit', token),
   upsertSurvey: (token: string, payload: Partial<SurveyVersion> & { surveyId?: string; isTemplate?: boolean }) =>

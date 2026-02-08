@@ -39,6 +39,17 @@ export function DashboardPage() {
     await loadSurveys();
   };
 
+  const archiveSurvey = async (surveyId: string, surveyTitle: string) => {
+    if (!token) return;
+    const ok = window.confirm(`Archive survey "${surveyTitle}"? It will no longer be active.`);
+    if (!ok) return;
+    await api.archiveSurvey(token, surveyId);
+    setStatus('Survey archived');
+    await loadSurveys();
+  };
+
+  const canManageSurveys = profile?.role === 'admin' || profile?.role === 'creator';
+
   return (
     <section className="space-y-4">
       <h1 className="text-2xl">Dashboard</h1>
@@ -86,21 +97,42 @@ export function DashboardPage() {
                 <td className="p-2">{survey.isTemplate ? 'Yes' : 'No'}</td>
                 <td className="p-2">
                   <div className="flex flex-wrap gap-2">
-                    <Link className="target-size rounded border border-base-border px-2 py-1" to={`/builder/${survey.id}`}>
-                      Edit
-                    </Link>
-                    <Link className="target-size rounded border border-base-border px-2 py-1" to={`/reports/${survey.id}`}>
-                      View report
-                    </Link>
-                    {(profile?.role === 'admin' || profile?.role === 'creator') && (
+                    {canManageSurveys ? (
+                      <>
+                        <Link className="target-size rounded border border-base-border px-2 py-1" to={`/reports/${survey.id}`}>
+                          View survey
+                        </Link>
+                        <Link className="target-size rounded border border-base-border px-2 py-1" to={`/builder/${survey.id}`}>
+                          Edit
+                        </Link>
+                        <button
+                          type="button"
+                          className="target-size rounded border border-base-border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={survey.status === 'archived'}
+                          onClick={() => {
+                            void archiveSurvey(survey.id, survey.title);
+                          }}
+                        >
+                          {survey.status === 'archived' ? 'Archived' : 'Archive'}
+                        </button>
+                        <button
+                          type="button"
+                          className="target-size rounded border border-base-border px-2 py-1"
+                          onClick={() => {
+                            void deleteSurvey(survey.id, survey.title);
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </>
+                    ) : null}
+                    {!canManageSurveys && (
                       <button
                         type="button"
                         className="target-size rounded border border-base-border px-2 py-1"
-                        onClick={() => {
-                          void deleteSurvey(survey.id, survey.title);
-                        }}
+                        disabled
                       >
-                        Delete
+                        No actions
                       </button>
                     )}
                   </div>

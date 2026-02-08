@@ -1,10 +1,17 @@
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { t } from '../i18n';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { profile, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname, profile]);
 
   return (
     <div className="min-h-screen text-base-text">
@@ -21,9 +28,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <span>{t('en', 'appName')}</span>
           </Link>
 
-          <nav aria-label="Primary" className="flex flex-wrap items-center gap-2">
-            {profile && (
-              <>
+          {profile ? (
+            <>
+              <button
+                type="button"
+                className="target-size rounded border border-base-border px-3 py-2 md:hidden"
+                aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+                aria-controls="primary-nav-mobile"
+                aria-expanded={mobileMenuOpen}
+                onClick={() => setMobileMenuOpen((current) => !current)}
+              >
+                Menu
+              </button>
+
+              <nav aria-label="Primary" className="hidden items-center gap-2 md:flex">
                 <NavLink className="target-size rounded px-3 py-2" to="/dashboard">
                   Dashboard
                 </NavLink>
@@ -35,14 +53,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     Admin
                   </NavLink>
                 )}
-              </>
-            )}
-            <NavLink className="target-size rounded px-3 py-2" to="/guide">
-              Guide
-            </NavLink>
-          </nav>
+                <NavLink className="target-size rounded px-3 py-2" to="/guide">
+                  Guide
+                </NavLink>
+              </nav>
+            </>
+          ) : null}
 
-          <div className="flex items-center gap-2">
+          <div className="hidden items-center gap-2 md:flex">
             {profile ? (
               <>
                 <span className="text-sm">{profile.fullName || profile.email}</span>
@@ -59,6 +77,36 @@ export function Layout({ children }: { children: React.ReactNode }) {
             ) : null}
           </div>
         </div>
+        {profile && mobileMenuOpen ? (
+          <div id="primary-nav-mobile" className="border-t border-base-border p-4 md:hidden">
+            <nav aria-label="Primary" className="flex flex-col gap-2">
+              <NavLink className="target-size rounded px-3 py-2" to="/dashboard">
+                Dashboard
+              </NavLink>
+              <NavLink className="target-size rounded px-3 py-2" to="/reports">
+                Reports
+              </NavLink>
+              {profile.role === 'admin' && (
+                <NavLink className="target-size rounded px-3 py-2" to="/admin">
+                  Admin
+                </NavLink>
+              )}
+              <NavLink className="target-size rounded px-3 py-2" to="/guide">
+                Guide
+              </NavLink>
+              <p className="px-3 py-1 text-sm">{profile.fullName || profile.email}</p>
+              <button
+                className="target-size rounded border border-base-border px-3 py-2 text-left"
+                onClick={() => {
+                  void logout();
+                  navigate('/');
+                }}
+              >
+                Log out
+              </button>
+            </nav>
+          </div>
+        ) : null}
       </header>
       <main id="main" className="mx-auto max-w-6xl p-4">
         {children}

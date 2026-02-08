@@ -709,6 +709,15 @@ export const handler: Handler = async (event) => {
       return json(200, { ok: true });
     }
 
+    if (action === 'archiveSurvey') {
+      roleGuard(ctx, ['admin', 'creator']);
+      const input = z.object({ surveyId: z.string().uuid() }).parse(body);
+      const survey = await ensureSurveyAccess(ctx, input.surveyId);
+      await supabase.from('surveys').update({ status: 'archived', updated_at: new Date().toISOString() }).eq('id', input.surveyId);
+      await recordAudit(ctx, 'archive_survey', 'survey', input.surveyId, { owner_user_id: survey.owner_user_id });
+      return json(200, { ok: true });
+    }
+
     if (action === 'listAudit') {
       roleGuard(ctx, ['admin']);
       const { data: logs, error } = await supabase
