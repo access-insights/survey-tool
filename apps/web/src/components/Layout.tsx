@@ -16,17 +16,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <Link to="/" className="flex items-center gap-3 text-xl" aria-label={t('en', 'appName')}>
             <picture>
               <source srcSet="/access_insights_logo_inverse.png" media="(prefers-color-scheme: dark), (forced-colors: active)" />
-              <img src="/access_insights_logo.png" alt="" aria-hidden="true" className="h-12 w-auto" />
+              <img src="/access_insights_logo.png" alt="" aria-hidden="true" className="h-24 w-auto" />
             </picture>
             <span>{t('en', 'appName')}</span>
           </Link>
-          {profile && (
-            <nav aria-label="Primary" className="flex flex-wrap items-center gap-2">
+
+          <nav aria-label="Primary" className="flex flex-wrap items-center gap-2">
+            {profile && (
               <NavLink className="target-size rounded px-3 py-2" to="/dashboard">
                 Dashboard
               </NavLink>
-            </nav>
-          )}
+            )}
+            <NavLink className="target-size rounded px-3 py-2" to="/guide">
+              User guide
+            </NavLink>
+          </nav>
+
           <div className="flex items-center gap-2">
             {profile ? (
               <>

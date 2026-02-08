@@ -9,6 +9,7 @@ import { NotFoundPage } from './pages/NotFoundPage';
 import { ParticipantPage } from './pages/ParticipantPage';
 import { ReportPage } from './pages/ReportPage';
 import { SurveyBuilderPage } from './pages/SurveyBuilderPage';
+import { UserGuidePage } from './pages/UserGuidePage';
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/guide" element={<UserGuidePage />} />
         <Route
           path="/dashboard"
           element={

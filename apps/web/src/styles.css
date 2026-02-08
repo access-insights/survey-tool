@@ -52,7 +52,9 @@ strong,
 b,
 th,
 legend,
-label {
+label,
+.font-bold,
+.font-semibold {
   font-weight: 400 !important;
 }
 
@@ -87,6 +89,14 @@ label {
 :focus-visible {
   outline: 3px solid var(--color-action);
   outline-offset: 2px;
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight;
+    background: Canvas;
+    color: CanvasText;
+  }
 }
 
 .skip-link {
