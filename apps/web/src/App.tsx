@@ -8,6 +8,7 @@ import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { ParticipantPage } from './pages/ParticipantPage';
 import { ReportPage } from './pages/ReportPage';
+import { ReportsPage } from './pages/ReportsPage';
 import { SurveyBuilderPage } from './pages/SurveyBuilderPage';
 import { UserGuidePage } from './pages/UserGuidePage';
 
@@ -39,6 +40,14 @@ export default function App() {
           element={
             <ProtectedRoute allow={['admin', 'creator']}>
               <SurveyBuilderPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute allow={['admin', 'creator']}>
+              <ReportsPage />
             </ProtectedRoute>
           }
         />

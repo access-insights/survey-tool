@@ -23,9 +23,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
           <nav aria-label="Primary" className="flex flex-wrap items-center gap-2">
             {profile && (
-              <NavLink className="target-size rounded px-3 py-2" to="/dashboard">
-                Dashboard
-              </NavLink>
+              <>
+                <NavLink className="target-size rounded px-3 py-2" to="/dashboard">
+                  Dashboard
+                </NavLink>
+                <NavLink className="target-size rounded px-3 py-2" to="/reports">
+                  Reports
+                </NavLink>
+                {profile.role === 'admin' && (
+                  <NavLink className="target-size rounded px-3 py-2" to="/admin">
+                    Admin
+                  </NavLink>
+                )}
+              </>
             )}
             <NavLink className="target-size rounded px-3 py-2" to="/guide">
               User guide
@@ -37,7 +47,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <>
                 <span className="text-sm">{profile.fullName || profile.email}</span>
                 <button
-                  className="target-size rounded border border-base-border px-3"
+                  className="target-size rounded border border-base-border px-3 py-2"
                   onClick={() => {
                     void logout();
                     navigate('/');

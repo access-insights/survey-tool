@@ -1,4 +1,4 @@
-import type { Invite, Survey, SurveyVersion, UserProfile } from '../types';
+import type { AuditEntry, Invite, Survey, SurveyVersion, UserProfile } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/.netlify/functions';
 
@@ -29,6 +29,8 @@ export const api = {
   listUsers: (token: string) => apiFetch<{ users: UserProfile[] }>('listUsers', token),
   setRole: (token: string, userId: string, role: string) => apiFetch<{ ok: true }>('setRole', token, { userId, role }),
   listSurveys: (token: string) => apiFetch<{ surveys: Survey[] }>('listSurveys', token),
+  deleteSurvey: (token: string, surveyId: string) => apiFetch<{ ok: true }>('deleteSurvey', token, { surveyId }),
+  listAudit: (token: string) => apiFetch<{ logs: AuditEntry[] }>('listAudit', token),
   upsertSurvey: (token: string, payload: Partial<SurveyVersion> & { surveyId?: string; isTemplate?: boolean }) =>
     apiFetch<{ surveyId: string; versionId: string }>('upsertSurvey', token, payload),
   publishSurvey: (token: string, surveyId: string) => apiFetch<{ ok: true }>('publishSurvey', token, { surveyId }),

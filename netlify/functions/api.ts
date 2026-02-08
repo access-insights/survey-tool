@@ -202,6 +202,16 @@ const ensureSurveyAccess = async (ctx: AuthContext, surveyId: string) => {
   return survey;
 };
 
+const mapCreatorNames = async (ownerIds: string[]) => {
+  if (!ownerIds.length) return new Map<string, string>();
+  const { data: owners } = await supabase.from('users').select('id,full_name,email').in('id', ownerIds);
+  const map = new Map<string, string>();
+  for (const owner of owners ?? []) {
+    map.set(owner.id, owner.full_name || owner.email || '');
+  }
+  return map;
+};
+
 const upsertSurveySchema = z.object({
   surveyId: z.string().uuid().optional(),
   title: z.string().min(3).max(200),
@@ -437,11 +447,13 @@ export const handler: Handler = async (event) => {
       }
       const { data, error } = await query;
       if (error) throw new Error(error.message);
+      const ownerMap = await mapCreatorNames(Array.from(new Set((data ?? []).map((row) => row.owner_user_id))));
       return json(200, {
         surveys: (data ?? []).map((row) => ({
           id: row.id,
           orgId: row.org_id,
           ownerUserId: row.owner_user_id,
+          creatorName: ownerMap.get(row.owner_user_id) ?? '',
           title: row.title,
           description: row.description,
           status: row.status,
@@ -680,6 +692,48 @@ export const handler: Handler = async (event) => {
           createdAt: data.created_at
         },
         link: `${siteUrl}/participant/${token}`
+      });
+    }
+
+    if (action === 'deleteSurvey') {
+      roleGuard(ctx, ['admin', 'creator']);
+      const input = z.object({ surveyId: z.string().uuid() }).parse(body);
+      const survey = await ensureSurveyAccess(ctx, input.surveyId);
+      await supabase.from('surveys').delete().eq('id', input.surveyId);
+      await recordAudit(ctx, 'delete_survey', 'survey', input.surveyId, { owner_user_id: survey.owner_user_id });
+      return json(200, { ok: true });
+    }
+
+    if (action === 'listAudit') {
+      roleGuard(ctx, ['admin']);
+      const { data: logs, error } = await supabase
+        .from('audit_log')
+        .select('id,actor_user_id,action,resource_type,resource_id,details,created_at')
+        .eq('org_id', ctx.orgId)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (error) throw new Error(error.message);
+
+      const actorIds = Array.from(new Set((logs ?? []).map((log) => log.actor_user_id).filter(Boolean)));
+      const { data: users } = actorIds.length
+        ? await supabase.from('users').select('id,full_name,email').in('id', actorIds)
+        : { data: [] as { id: string; full_name: string; email: string }[] };
+      const userMap = new Map<string, { full_name: string; email: string }>();
+      for (const user of users ?? []) {
+        userMap.set(user.id, user);
+      }
+
+      return json(200, {
+        logs: (logs ?? []).map((log) => ({
+          id: log.id,
+          actorUserId: log.actor_user_id,
+          actorName: log.actor_user_id ? (userMap.get(log.actor_user_id)?.full_name ?? userMap.get(log.actor_user_id)?.email ?? 'Unknown') : 'System',
+          action: log.action,
+          resourceType: log.resource_type,
+          resourceId: log.resource_id,
+          details: log.details,
+          createdAt: log.created_at
+        }))
       });
     }
 

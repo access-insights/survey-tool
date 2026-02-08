@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 
@@ -37,12 +37,12 @@ export function ReportPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-2xl font-bold">Survey reporting</h1>
+      <h1 className="text-2xl">Survey reporting</h1>
       <div className="grid gap-3 md:grid-cols-4">
         {Object.entries(summary).map(([key, value]) => (
           <div key={key} className="rounded border border-base-border bg-base-surface p-3">
             <p className="text-sm capitalize">{key.replace(/_/g, ' ')}</p>
-            <p className="text-xl font-bold">{String(value)}</p>
+            <p className="text-xl">{String(value)}</p>
           </div>
         ))}
       </div>
@@ -80,6 +80,14 @@ export function ReportPage() {
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Link className="target-size rounded border border-base-border px-3 py-2" to="/reports">
+          Back to reports
+        </Link>
+        <Link className="target-size rounded border border-base-border px-3 py-2" to="/dashboard">
+          Back to dashboard
+        </Link>
       </div>
     </section>
   );

@@ -56,12 +56,24 @@ export interface Survey {
   id: string;
   orgId: string;
   ownerUserId: string;
+  creatorName?: string;
   title: string;
   description: string;
   status: SurveyStatus;
   isTemplate: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AuditEntry {
+  id: string;
+  actorUserId?: string;
+  actorName: string;
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  details: Record<string, unknown>;
+  createdAt: string;
 }
 
 export interface UserProfile {
