@@ -14,6 +14,7 @@ export function ParticipantPage() {
   const [status, setStatus] = useState('Loading survey...');
   const [saved, setSaved] = useState('');
   const [submissionId, setSubmissionId] = useState('');
+  const [confirmationCode, setConfirmationCode] = useState('');
 
   useEffect(() => {
     api
@@ -60,6 +61,7 @@ export function ParticipantPage() {
   const onSubmit = async (answers: Record<string, string | string[]>) => {
     const result = await api.participantSubmit(inviteToken, answers);
     setSubmissionId(result.submissionId);
+    setConfirmationCode(result.confirmationCode);
   };
 
   const errorItems = Object.entries(errors).map(([id, value]) => ({ id, message: value?.message?.toString() ?? 'Invalid answer' }));
@@ -70,7 +72,7 @@ export function ParticipantPage() {
         <h1 className="text-2xl font-bold">Submission complete</h1>
         <p>{version.thankYouText || 'Thank you for completing this survey.'}</p>
         <p>
-          Confirmation ID: <strong>{submissionId}</strong>
+          Confirmation code: <strong>{confirmationCode || submissionId}</strong>
         </p>
       </section>
     );

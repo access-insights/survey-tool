@@ -268,6 +268,11 @@ function csvEscape(value: unknown) {
   return str;
 }
 
+function makeConfirmationCode(id: string) {
+  const clean = id.replaceAll('-', '').toUpperCase();
+  return `${clean.slice(0, 4)}-${clean.slice(-4)}`;
+}
+
 export const handler: Handler = async (event) => {
   try {
     const action = event.queryStringParameters?.action;
@@ -396,7 +401,7 @@ export const handler: Handler = async (event) => {
         }).catch(() => undefined);
       }
 
-      return json(200, { submissionId: response.id });
+      return json(200, { submissionId: response.id, confirmationCode: makeConfirmationCode(response.id) });
     }
 
     const ctx = await requireAuth(event.headers.authorization);

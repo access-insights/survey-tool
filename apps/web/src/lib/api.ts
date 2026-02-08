@@ -43,7 +43,7 @@ export const api = {
   participantSaveDraft: (inviteToken: string, answers: Record<string, string | string[]>) =>
     apiFetch<{ ok: true }>('participantSaveDraft', undefined, { inviteToken, answers }),
   participantSubmit: (inviteToken: string, answers: Record<string, string | string[]>) =>
-    apiFetch<{ submissionId: string }>('participantSubmit', undefined, { inviteToken, answers }),
+    apiFetch<{ submissionId: string; confirmationCode: string }>('participantSubmit', undefined, { inviteToken, answers }),
   reportSummary: (token: string, surveyId: string) => apiFetch<{ summary: Record<string, unknown>; rows: Record<string, unknown>[] }>('reportSummary', token, { surveyId }),
   exportCsv: (token: string, surveyId: string) => apiFetch<{ csv: string }>('exportCsv', token, { surveyId })
 };

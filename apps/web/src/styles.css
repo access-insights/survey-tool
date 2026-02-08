@@ -91,11 +91,25 @@ label,
   outline-offset: 2px;
 }
 
+button:focus-visible,
+[role='button']:focus-visible,
+a:focus-visible {
+  color: var(--color-text);
+}
+
 @media (forced-colors: active) {
   :focus-visible {
     outline: 2px solid Highlight;
     background: Canvas;
     color: CanvasText;
+  }
+
+  button:focus-visible,
+  [role='button']:focus-visible,
+  a:focus-visible {
+    color: ButtonText;
+    background: ButtonFace;
+    border-color: ButtonText;
   }
 }
 

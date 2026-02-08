@@ -165,6 +165,12 @@ export function SurveyBuilderPage() {
     setInvites(inviteResult.invites);
   };
 
+  const copyInviteLink = async () => {
+    if (!inviteLink) return;
+    await navigator.clipboard.writeText(inviteLink);
+    setStatus('Survey link copied to clipboard');
+  };
+
   const moveQuestion = (index: number, nextIndex: number) => {
     if (nextIndex < 0 || nextIndex >= questions.length) return;
     const updated = [...questions];
@@ -444,9 +450,14 @@ export function SurveyBuilderPage() {
           </div>
 
           {inviteLink && (
-            <p>
-              Share link: <a href={inviteLink}>{inviteLink}</a>
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p>
+                Share link: <a href={inviteLink}>{inviteLink}</a>
+              </p>
+              <button type="button" className="target-size rounded border border-base-border px-3 py-1" onClick={() => { void copyInviteLink(); }}>
+                Copy
+              </button>
+            </div>
           )}
 
           {invites.length > 0 && (

@@ -38,7 +38,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </>
             )}
             <NavLink className="target-size rounded px-3 py-2" to="/guide">
-              User guide
+              Guide
             </NavLink>
           </nav>
 
