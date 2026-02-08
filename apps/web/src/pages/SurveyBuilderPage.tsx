@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { z } from 'zod';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { shouldShowQuestion } from '../lib/surveyValidation';
 import type { Invite, Question, QuestionType } from '../types';
 
 const surveySchema = z.object({
@@ -64,6 +65,7 @@ export function SurveyBuilderPage() {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
+  const [previewValues, setPreviewValues] = useState<Record<string, string | string[]>>({});
 
   const {
     register,
@@ -91,21 +93,27 @@ export function SurveyBuilderPage() {
 
     if (!token) return;
 
-    api.getSurveyVersion(token, surveyId).then((result) => {
-      setQuestions(result.version.questions.length ? result.version.questions : [makeQuestion()]);
-      setIsPublished(result.version.isPublished);
-      reset({
-        title: result.version.title,
-        description: result.version.description,
-        introText: result.version.introText,
-        consentBlurb: result.version.consentBlurb,
-        thankYouText: result.version.thankYouText,
-        tags: result.version.tags?.join(', '),
-        isTemplate: false
-      });
-    });
+    void api
+      .getSurveyVersion(token, surveyId)
+      .then((result) => {
+        setQuestions(result.version.questions.length ? result.version.questions : [makeQuestion()]);
+        setIsPublished(result.version.isPublished);
+        reset({
+          title: result.version.title,
+          description: result.version.description,
+          introText: result.version.introText,
+          consentBlurb: result.version.consentBlurb,
+          thankYouText: result.version.thankYouText,
+          tags: result.version.tags?.join(', '),
+          isTemplate: false
+        });
+      })
+      .catch((error: Error) => setStatus(error.message));
 
-    api.listInvites(token, surveyId).then((result) => setInvites(result.invites));
+    void api
+      .listInvites(token, surveyId)
+      .then((result) => setInvites(result.invites))
+      .catch((error: Error) => setStatus(error.message));
   }, [surveyId, token, reset]);
 
   const optionsQuestionTypes = useMemo(() => new Set(['single_choice', 'multiple_choice', 'dropdown', 'likert']), []);
@@ -152,17 +160,30 @@ export function SurveyBuilderPage() {
 
   const publishSurvey = async () => {
     if (!token || !surveyId) return;
-    await api.publishSurvey(token, surveyId);
-    setIsPublished(true);
-    setStatus('Survey published');
+    try {
+      await api.publishSurvey(token, surveyId);
+      setIsPublished(true);
+      setStatus('Survey published');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Failed to publish survey');
+    }
   };
 
   const createInvite = async () => {
     if (!token || !surveyId) return;
-    const result = await api.createInvite(token, surveyId);
-    setInviteLink(result.link);
-    const inviteResult = await api.listInvites(token, surveyId);
-    setInvites(inviteResult.invites);
+    try {
+      if (!isPublished) {
+        await api.publishSurvey(token, surveyId);
+        setIsPublished(true);
+      }
+      const result = await api.createInvite(token, surveyId);
+      setInviteLink(result.link);
+      const inviteResult = await api.listInvites(token, surveyId);
+      setInvites(inviteResult.invites);
+      setStatus('Survey link created');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Failed to create survey link');
+    }
   };
 
   const copyInviteLink = async () => {
@@ -184,6 +205,14 @@ export function SurveyBuilderPage() {
   };
 
   const removeQuestion = (id: string) => setQuestions((current) => current.filter((question) => question.id !== id));
+  const visiblePreviewQuestions = useMemo(
+    () => questions.filter((question) => shouldShowQuestion(question, previewValues)),
+    [questions, previewValues]
+  );
+
+  const setPreviewValue = (questionId: string, value: string | string[]) => {
+    setPreviewValues((current) => ({ ...current, [questionId]: value }));
+  };
 
   return (
     <section className="space-y-5">
@@ -431,20 +460,125 @@ export function SurveyBuilderPage() {
       {showPreview && (
         <section className="space-y-3 rounded border border-base-border bg-base-surface p-4">
           <h2 className="text-xl">Preview current draft</h2>
-          <p className="text-sm">This preview is read-only and mirrors the current question order.</p>
-          <ol className="list-decimal pl-6">
-            {questions.map((question) => (
-              <li key={question.id}>
-                {question.label} <span className="text-sm text-base-muted">({question.type})</span>
-              </li>
-            ))}
-          </ol>
+          <p className="text-sm">Participant preview mode. This reflects conditional logic and field types.</p>
+
+          <div className="space-y-4 rounded border border-base-border bg-base-bg p-4">
+            <p className="text-sm text-base-muted">Preview answers are local and not saved.</p>
+            {visiblePreviewQuestions.map((question) => {
+              const value = previewValues[question.id];
+              const baseClass = 'target-size w-full rounded border border-base-border bg-base-surface px-2';
+
+              return (
+                <div key={question.id} className="space-y-2 rounded border border-base-border p-3">
+                  {(question.type === 'single_choice' || question.type === 'yes_no' || question.type === 'likert') && (
+                    <fieldset>
+                      <legend>{question.label}</legend>
+                      {question.helpText && <p id={`${question.id}-preview-help`}>{question.helpText}</p>}
+                      {(question.type === 'yes_no' ? ['Yes', 'No'] : question.options ?? []).map((option) => (
+                        <label key={option} className="target-size flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name={`${question.id}-preview`}
+                            value={option}
+                            checked={value === option}
+                            onChange={(e) => setPreviewValue(question.id, e.target.value)}
+                          />
+                          {option}
+                        </label>
+                      ))}
+                    </fieldset>
+                  )}
+
+                  {question.type === 'multiple_choice' && (
+                    <fieldset>
+                      <legend>{question.label}</legend>
+                      {question.helpText && <p id={`${question.id}-preview-help`}>{question.helpText}</p>}
+                      {(question.options ?? []).map((option) => {
+                        const selected = Array.isArray(value) ? value : [];
+                        const checked = selected.includes(option);
+                        return (
+                          <label key={option} className="target-size flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => {
+                                const next = e.target.checked ? [...selected, option] : selected.filter((item) => item !== option);
+                                setPreviewValue(question.id, next);
+                              }}
+                            />
+                            {option}
+                          </label>
+                        );
+                      })}
+                    </fieldset>
+                  )}
+
+                  {question.type === 'dropdown' && (
+                    <label className="block">
+                      <span className="mb-1 block">{question.label}</span>
+                      <select className={baseClass} value={typeof value === 'string' ? value : ''} onChange={(e) => setPreviewValue(question.id, e.target.value)}>
+                        <option value="">Select one</option>
+                        {(question.options ?? []).map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+
+                  {question.type === 'long_text' && (
+                    <label className="block">
+                      <span className="mb-1 block">{question.label}</span>
+                      <textarea
+                        className="w-full rounded border border-base-border bg-base-surface p-2"
+                        value={typeof value === 'string' ? value : ''}
+                        onChange={(e) => setPreviewValue(question.id, e.target.value)}
+                      />
+                    </label>
+                  )}
+
+                  {question.type === 'consent' && (
+                    <label className="target-size flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={value === 'yes'}
+                        onChange={(e) => setPreviewValue(question.id, e.target.checked ? 'yes' : '')}
+                      />
+                      {question.label}
+                    </label>
+                  )}
+
+                  {(question.type === 'short_text' ||
+                    question.type === 'number' ||
+                    question.type === 'email' ||
+                    question.type === 'phone' ||
+                    question.type === 'date') && (
+                    <label className="block">
+                      <span className="mb-1 block">{question.label}</span>
+                      <input
+                        type={question.type === 'email' || question.type === 'date' ? question.type : question.type === 'number' ? 'number' : 'text'}
+                        className={baseClass}
+                        value={typeof value === 'string' ? value : ''}
+                        onChange={(e) => setPreviewValue(question.id, e.target.value)}
+                        min={question.min}
+                        max={question.max}
+                        maxLength={question.maxLength}
+                      />
+                    </label>
+                  )}
+
+                  {question.helpText && <p className="text-sm text-base-muted">{question.helpText}</p>}
+                </div>
+              );
+            })}
+          </div>
 
           <div className="flex flex-wrap gap-2">
             <button type="button" className="target-size rounded bg-base-action px-3 py-2 text-base-actionText" onClick={publishSurvey} disabled={!surveyId}>
               Publish
             </button>
-            <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={createInvite} disabled={!surveyId || !isPublished}>
+            <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={createInvite} disabled={!surveyId}>
               Create survey link
             </button>
           </div>

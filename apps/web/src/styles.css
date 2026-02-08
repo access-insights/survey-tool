@@ -91,10 +91,19 @@ label,
   outline-offset: 2px;
 }
 
-button:focus-visible,
-[role='button']:focus-visible,
-a:focus-visible {
+button:not(.text-base-actionText),
+[role='button']:not(.text-base-actionText) {
   color: var(--color-text);
+}
+
+button:focus-visible,
+[role='button']:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-bg);
+}
+
+button.bg-base-action:focus-visible,
+[role='button'].bg-base-action:focus-visible {
+  color: var(--color-action-text) !important;
 }
 
 @media (forced-colors: active) {
