@@ -45,6 +45,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <NavLink className="target-size rounded px-3 py-2" to="/dashboard">
                   Dashboard
                 </NavLink>
+                {(profile.role === 'admin' || profile.role === 'creator') && (
+                  <NavLink className="target-size rounded px-3 py-2" to="/my-surveys">
+                    My Surveys
+                  </NavLink>
+                )}
                 <NavLink className="target-size rounded px-3 py-2" to="/reports">
                   Reports
                 </NavLink>
@@ -83,6 +88,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <NavLink className="target-size rounded px-3 py-2" to="/dashboard">
                 Dashboard
               </NavLink>
+              {(profile.role === 'admin' || profile.role === 'creator') && (
+                <NavLink className="target-size rounded px-3 py-2" to="/my-surveys">
+                  My Surveys
+                </NavLink>
+              )}
               <NavLink className="target-size rounded px-3 py-2" to="/reports">
                 Reports
               </NavLink>

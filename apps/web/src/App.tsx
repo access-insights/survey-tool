@@ -6,6 +6,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { MySurveysPage } from './pages/MySurveysPage';
 import { ParticipantPage } from './pages/ParticipantPage';
 import { ReportPage } from './pages/ReportPage';
 import { ReportsPage } from './pages/ReportsPage';
@@ -33,6 +34,14 @@ export default function App() {
           element={
             <ProtectedRoute allow={['admin']}>
               <AdminPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-surveys"
+          element={
+            <ProtectedRoute allow={['admin', 'creator']}>
+              <MySurveysPage />
             </ProtectedRoute>
           }
         />

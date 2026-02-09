@@ -72,6 +72,7 @@ export function DashboardPage() {
   };
 
   const canManageSurveys = profile?.role === 'admin' || profile?.role === 'creator';
+  const canDeleteSurveys = profile?.role === 'admin';
 
   return (
     <section className="space-y-4">
@@ -158,15 +159,17 @@ export function DashboardPage() {
                         >
                           {survey.status === 'archived' ? 'Archived' : 'Archive'}
                         </button>
-                        <button
-                          type="button"
-                          className="target-size rounded border border-base-border px-2 py-1"
-                          onClick={() => {
-                            void deleteSurvey(survey.id, survey.title);
-                          }}
-                        >
-                          Delete
-                        </button>
+                        {canDeleteSurveys ? (
+                          <button
+                            type="button"
+                            className="target-size rounded border border-base-border px-2 py-1"
+                            onClick={() => {
+                              void deleteSurvey(survey.id, survey.title);
+                            }}
+                          >
+                            Delete
+                          </button>
+                        ) : null}
                       </>
                     ) : null}
                     {!canManageSurveys && (
