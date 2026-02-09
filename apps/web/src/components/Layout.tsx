@@ -18,7 +18,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <a href="#main" className="skip-link">
         Skip to main content
       </a>
-      <header className="border-b border-base-border bg-base-surface">
+      <header className="sticky top-0 z-40 border-b border-base-border bg-base-surface">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 p-3">
           <Link to="/" className="flex items-center gap-2 text-lg" aria-label={t('en', 'appName')}>
             <picture>
