@@ -12,11 +12,8 @@ function roleLabel(role: string | undefined) {
 export function DashboardPage() {
   const { token, profile } = useAuth();
   const [surveys, setSurveys] = useState<Survey[]>([]);
-  const [titleFilter, setTitleFilter] = useState('');
-  const [authorFilter, setAuthorFilter] = useState('');
-  const [lastEditedByFilter, setLastEditedByFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [templateFilter, setTemplateFilter] = useState('');
+  const [query, setQuery] = useState('');
+  const [filterBy, setFilterBy] = useState<'all' | 'title' | 'author' | 'lastEditedBy' | 'status' | 'template'>('all');
   const [status, setStatus] = useState('');
 
   const loadSurveys = useCallback(async () => {
@@ -37,20 +34,24 @@ export function DashboardPage() {
   };
 
   const filtered = useMemo(() => {
+    if (!query.trim()) return surveys;
+    const q = query.toLowerCase();
     return surveys.filter((survey) => {
-      const matchesTitle = titleFilter.length === 0 || survey.title.toLowerCase().includes(titleFilter.toLowerCase());
+      const title = survey.title.toLowerCase();
       const author = (survey.authorName ?? survey.creatorName ?? '').toLowerCase();
-      const matchesAuthor = authorFilter.length === 0 || author.includes(authorFilter.toLowerCase());
-      const editor = (survey.lastEditedBy ?? '').toLowerCase();
-      const matchesLastEditedBy = lastEditedByFilter.length === 0 || editor.includes(lastEditedByFilter.toLowerCase());
-      const formattedStatus = formatSurveyStatus(survey.status).toLowerCase();
-      const matchesStatus = statusFilter.length === 0 || formattedStatus.includes(statusFilter.toLowerCase());
-      const templateText = survey.isTemplate ? 'yes' : 'no';
-      const matchesTemplate = templateFilter.length === 0 || templateText.includes(templateFilter.toLowerCase());
+      const lastEditedBy = (survey.lastEditedBy ?? survey.authorName ?? survey.creatorName ?? '').toLowerCase();
+      const surveyStatus = formatSurveyStatus(survey.status).toLowerCase();
+      const template = survey.isTemplate ? 'yes' : 'no';
 
-      return matchesTitle && matchesAuthor && matchesLastEditedBy && matchesStatus && matchesTemplate;
+      if (filterBy === 'title') return title.includes(q);
+      if (filterBy === 'author') return author.includes(q);
+      if (filterBy === 'lastEditedBy') return lastEditedBy.includes(q);
+      if (filterBy === 'status') return surveyStatus.includes(q);
+      if (filterBy === 'template') return template.includes(q);
+
+      return `${title} ${author} ${lastEditedBy} ${surveyStatus} ${template}`.includes(q);
     });
-  }, [authorFilter, lastEditedByFilter, statusFilter, surveys, templateFilter, titleFilter]);
+  }, [filterBy, query, surveys]);
 
   const deleteSurvey = async (surveyId: string, surveyTitle: string) => {
     if (!token) return;
@@ -89,6 +90,33 @@ export function DashboardPage() {
           Reports
         </Link>
       </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="block min-w-[16rem] flex-1" htmlFor="survey-search">
+          <span className="mb-1 block">Search surveys</span>
+          <input
+            id="survey-search"
+            className="target-size w-full rounded border border-base-border bg-base-bg px-2"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </label>
+        <label className="block min-w-[12rem]" htmlFor="dashboard-filter-by">
+          <span className="mb-1 block">Filter by</span>
+          <select
+            id="dashboard-filter-by"
+            className="target-size w-full rounded border border-base-border bg-base-bg px-2"
+            value={filterBy}
+            onChange={(e) => setFilterBy(e.target.value as 'all' | 'title' | 'author' | 'lastEditedBy' | 'status' | 'template')}
+          >
+            <option value="all">All columns</option>
+            <option value="title">Title</option>
+            <option value="author">Author</option>
+            <option value="lastEditedBy">Last Edited By</option>
+            <option value="status">Status</option>
+            <option value="template">Template</option>
+          </select>
+        </label>
+      </div>
       <div className="overflow-x-auto rounded border border-base-border bg-base-surface">
         <table className="min-w-full">
           <caption className="sr-only">Survey list</caption>
@@ -100,49 +128,6 @@ export function DashboardPage() {
               <th className="p-2 text-left">Status</th>
               <th className="p-2 text-left">Template</th>
               <th className="p-2 text-left">Actions</th>
-            </tr>
-            <tr className="border-t border-base-border">
-              <th className="p-2 text-left">
-                <input
-                  aria-label="Filter by title"
-                  className="target-size w-full rounded border border-base-border bg-base-bg px-2"
-                  value={titleFilter}
-                  onChange={(e) => setTitleFilter(e.target.value)}
-                />
-              </th>
-              <th className="p-2 text-left">
-                <input
-                  aria-label="Filter by author"
-                  className="target-size w-full rounded border border-base-border bg-base-bg px-2"
-                  value={authorFilter}
-                  onChange={(e) => setAuthorFilter(e.target.value)}
-                />
-              </th>
-              <th className="p-2 text-left">
-                <input
-                  aria-label="Filter by last edited by"
-                  className="target-size w-full rounded border border-base-border bg-base-bg px-2"
-                  value={lastEditedByFilter}
-                  onChange={(e) => setLastEditedByFilter(e.target.value)}
-                />
-              </th>
-              <th className="p-2 text-left">
-                <input
-                  aria-label="Filter by status"
-                  className="target-size w-full rounded border border-base-border bg-base-bg px-2"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                />
-              </th>
-              <th className="p-2 text-left">
-                <input
-                  aria-label="Filter by template"
-                  className="target-size w-full rounded border border-base-border bg-base-bg px-2"
-                  value={templateFilter}
-                  onChange={(e) => setTemplateFilter(e.target.value)}
-                />
-              </th>
-              <th className="p-2 text-left" />
             </tr>
           </thead>
           <tbody>
