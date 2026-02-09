@@ -89,6 +89,7 @@ export function SurveyBuilderPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [showRegexHelp, setShowRegexHelp] = useState(false);
   const [showReorderDialog, setShowReorderDialog] = useState(false);
+  const [reorderQuestions, setReorderQuestions] = useState<Question[]>([]);
   const [showActionDialog, setShowActionDialog] = useState(false);
   const [actionDialogTitle, setActionDialogTitle] = useState('');
   const [actionDialogLink, setActionDialogLink] = useState('');
@@ -205,12 +206,12 @@ export function SurveyBuilderPage() {
     setStatus('Draft review closed');
   };
 
-  const moveQuestion = (index: number, nextIndex: number) => {
-    if (nextIndex < 0 || nextIndex >= questions.length) return;
-    const updated = [...questions];
+  const moveReorderQuestion = (index: number, nextIndex: number) => {
+    if (nextIndex < 0 || nextIndex >= reorderQuestions.length) return;
+    const updated = [...reorderQuestions];
     const [item] = updated.splice(index, 1);
     updated.splice(nextIndex, 0, item);
-    setQuestions(updated);
+    setReorderQuestions(updated);
   };
 
   const updateQuestion = (id: string, updater: (current: Question) => Question) => {
@@ -629,7 +630,14 @@ export function SurveyBuilderPage() {
             <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={() => { void cloneSurvey(); }}>
               Clone
             </button>
-            <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={() => setShowReorderDialog(true)}>
+            <button
+              type="button"
+              className="target-size rounded border border-base-border px-4 py-2"
+              onClick={() => {
+                setReorderQuestions(questions);
+                setShowReorderDialog(true);
+              }}
+            >
               Reorder Survey Questions
             </button>
             <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={() => { void publishSurvey(); }}>
@@ -645,16 +653,16 @@ export function SurveyBuilderPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="reorder-title">
           <div className="w-full max-w-2xl space-y-3 rounded border border-base-border bg-base-surface p-4">
             <h2 id="reorder-title" className="text-xl">Reorder Survey Questions</h2>
-            {questions.map((question, index) => (
+            {reorderQuestions.map((question, index) => (
               <div key={question.id} className="flex items-center justify-between gap-3 rounded border border-base-border p-3">
                 <p>
                   {index + 1}. {question.label}
                 </p>
                 <div className="flex gap-2">
-                  <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => moveQuestion(index, index - 1)}>
+                  <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => moveReorderQuestion(index, index - 1)}>
                     Move up
                   </button>
-                  <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => moveQuestion(index, index + 1)}>
+                  <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => moveReorderQuestion(index, index + 1)}>
                     Move down
                   </button>
                 </div>
@@ -665,8 +673,8 @@ export function SurveyBuilderPage() {
                 type="button"
                 className="target-size rounded bg-base-action px-4 py-2 text-base-actionText"
                 onClick={() => {
+                  setQuestions(reorderQuestions);
                   setShowReorderDialog(false);
-                  setShowPreview(true);
                   setStatus('Question order updated');
                 }}
               >
@@ -677,8 +685,6 @@ export function SurveyBuilderPage() {
                 className="target-size rounded border border-base-border px-4 py-2"
                 onClick={() => {
                   setShowReorderDialog(false);
-                  setShowPreview(false);
-                  window.scrollTo({ top: 0, behavior: 'auto' });
                 }}
               >
                 Cancel
