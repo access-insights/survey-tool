@@ -9,6 +9,7 @@ export function MySurveysPage() {
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [query, setQuery] = useState('');
   const [filterBy, setFilterBy] = useState<'all' | 'title' | 'status' | 'template'>('all');
+  const [filterValue, setFilterValue] = useState('');
   const [status, setStatus] = useState('');
 
   const loadSurveys = useCallback(async () => {
@@ -28,20 +29,30 @@ export function MySurveysPage() {
     return value;
   };
 
-  const filtered = useMemo(() => {
-    if (!query.trim()) return surveys;
-    const q = query.toLowerCase();
-    return surveys.filter((survey) => {
-      const title = survey.title.toLowerCase();
-      const surveyStatus = formatSurveyStatus(survey.status).toLowerCase();
-      const template = survey.isTemplate ? 'yes' : 'no';
+  const filterOptions = useMemo(() => {
+    const dedupe = new Set<string>();
+    for (const survey of surveys) {
+      if (filterBy === 'title') dedupe.add(survey.title);
+      if (filterBy === 'status') dedupe.add(formatSurveyStatus(survey.status));
+      if (filterBy === 'template') dedupe.add(survey.isTemplate ? 'Yes' : 'No');
+    }
+    return Array.from(dedupe).sort((a, b) => a.localeCompare(b));
+  }, [filterBy, surveys]);
 
-      if (filterBy === 'title') return title.includes(q);
-      if (filterBy === 'status') return surveyStatus.includes(q);
-      if (filterBy === 'template') return template.includes(q);
-      return `${title} ${surveyStatus} ${template}`.includes(q);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return surveys.filter((survey) => {
+      const title = survey.title;
+      const surveyStatus = formatSurveyStatus(survey.status);
+      const template = survey.isTemplate ? 'Yes' : 'No';
+
+      const matchesQuery = q.length === 0 || `${title} ${surveyStatus} ${template}`.toLowerCase().includes(q);
+      if (filterBy === 'all' || !filterValue) return matchesQuery;
+      if (filterBy === 'title') return matchesQuery && title === filterValue;
+      if (filterBy === 'status') return matchesQuery && surveyStatus === filterValue;
+      return matchesQuery && template === filterValue;
     });
-  }, [filterBy, query, surveys]);
+  }, [filterBy, filterValue, query, surveys]);
 
   const archiveSurvey = async (surveyId: string, surveyTitle: string) => {
     if (!token) return;
@@ -81,7 +92,10 @@ export function MySurveysPage() {
             id="my-survey-filter-by"
             className="target-size w-full rounded border border-base-border bg-base-bg px-2"
             value={filterBy}
-            onChange={(e) => setFilterBy(e.target.value as 'all' | 'title' | 'status' | 'template')}
+            onChange={(e) => {
+              setFilterBy(e.target.value as 'all' | 'title' | 'status' | 'template');
+              setFilterValue('');
+            }}
           >
             <option value="all">All columns</option>
             <option value="title">Title</option>
@@ -89,6 +103,24 @@ export function MySurveysPage() {
             <option value="template">Template</option>
           </select>
         </label>
+        {filterBy !== 'all' && (
+          <label className="block min-w-[12rem]" htmlFor="my-survey-filter-value">
+            <span className="mb-1 block">Filter value</span>
+            <select
+              id="my-survey-filter-value"
+              className="target-size w-full rounded border border-base-border bg-base-bg px-2"
+              value={filterValue}
+              onChange={(e) => setFilterValue(e.target.value)}
+            >
+              <option value="">All values</option>
+              {filterOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
       <div className="overflow-x-auto rounded border border-base-border bg-base-surface">
         <table className="min-w-full">
