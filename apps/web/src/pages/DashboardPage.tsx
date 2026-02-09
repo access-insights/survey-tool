@@ -12,7 +12,11 @@ function roleLabel(role: string | undefined) {
 export function DashboardPage() {
   const { token, profile } = useAuth();
   const [surveys, setSurveys] = useState<Survey[]>([]);
-  const [query, setQuery] = useState('');
+  const [titleFilter, setTitleFilter] = useState('');
+  const [authorFilter, setAuthorFilter] = useState('');
+  const [lastEditedByFilter, setLastEditedByFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [templateFilter, setTemplateFilter] = useState('');
   const [status, setStatus] = useState('');
 
   const loadSurveys = useCallback(async () => {
@@ -25,10 +29,28 @@ export function DashboardPage() {
     void loadSurveys();
   }, [loadSurveys]);
 
+  const formatSurveyStatus = (value: Survey['status']) => {
+    if (value === 'draft') return 'Draft';
+    if (value === 'published') return 'Published';
+    if (value === 'archived') return 'Archived';
+    return value;
+  };
+
   const filtered = useMemo(() => {
-    if (!query) return surveys;
-    return surveys.filter((survey) => `${survey.title} ${survey.description} ${survey.creatorName ?? ''}`.toLowerCase().includes(query.toLowerCase()));
-  }, [query, surveys]);
+    return surveys.filter((survey) => {
+      const matchesTitle = titleFilter.length === 0 || survey.title.toLowerCase().includes(titleFilter.toLowerCase());
+      const author = (survey.authorName ?? survey.creatorName ?? '').toLowerCase();
+      const matchesAuthor = authorFilter.length === 0 || author.includes(authorFilter.toLowerCase());
+      const editor = (survey.lastEditedBy ?? '').toLowerCase();
+      const matchesLastEditedBy = lastEditedByFilter.length === 0 || editor.includes(lastEditedByFilter.toLowerCase());
+      const formattedStatus = formatSurveyStatus(survey.status).toLowerCase();
+      const matchesStatus = statusFilter.length === 0 || formattedStatus.includes(statusFilter.toLowerCase());
+      const templateText = survey.isTemplate ? 'yes' : 'no';
+      const matchesTemplate = templateFilter.length === 0 || templateText.includes(templateFilter.toLowerCase());
+
+      return matchesTitle && matchesAuthor && matchesLastEditedBy && matchesStatus && matchesTemplate;
+    });
+  }, [authorFilter, lastEditedByFilter, statusFilter, surveys, templateFilter, titleFilter]);
 
   const deleteSurvey = async (surveyId: string, surveyTitle: string) => {
     if (!token) return;
@@ -67,33 +89,69 @@ export function DashboardPage() {
           Reports
         </Link>
       </div>
-      <label className="block max-w-sm" htmlFor="survey-search">
-        <span className="mb-1 block">Search surveys and templates</span>
-        <input
-          id="survey-search"
-          className="target-size w-full rounded border border-base-border bg-base-surface px-2"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </label>
       <div className="overflow-x-auto rounded border border-base-border bg-base-surface">
         <table className="min-w-full">
           <caption className="sr-only">Survey list</caption>
           <thead>
             <tr>
               <th className="p-2 text-left">Title</th>
-              <th className="p-2 text-left">Creator</th>
+              <th className="p-2 text-left">Author</th>
+              <th className="p-2 text-left">Last Edited By</th>
               <th className="p-2 text-left">Status</th>
               <th className="p-2 text-left">Template</th>
               <th className="p-2 text-left">Actions</th>
+            </tr>
+            <tr className="border-t border-base-border">
+              <th className="p-2 text-left">
+                <input
+                  aria-label="Filter by title"
+                  className="target-size w-full rounded border border-base-border bg-base-bg px-2"
+                  value={titleFilter}
+                  onChange={(e) => setTitleFilter(e.target.value)}
+                />
+              </th>
+              <th className="p-2 text-left">
+                <input
+                  aria-label="Filter by author"
+                  className="target-size w-full rounded border border-base-border bg-base-bg px-2"
+                  value={authorFilter}
+                  onChange={(e) => setAuthorFilter(e.target.value)}
+                />
+              </th>
+              <th className="p-2 text-left">
+                <input
+                  aria-label="Filter by last edited by"
+                  className="target-size w-full rounded border border-base-border bg-base-bg px-2"
+                  value={lastEditedByFilter}
+                  onChange={(e) => setLastEditedByFilter(e.target.value)}
+                />
+              </th>
+              <th className="p-2 text-left">
+                <input
+                  aria-label="Filter by status"
+                  className="target-size w-full rounded border border-base-border bg-base-bg px-2"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                />
+              </th>
+              <th className="p-2 text-left">
+                <input
+                  aria-label="Filter by template"
+                  className="target-size w-full rounded border border-base-border bg-base-bg px-2"
+                  value={templateFilter}
+                  onChange={(e) => setTemplateFilter(e.target.value)}
+                />
+              </th>
+              <th className="p-2 text-left" />
             </tr>
           </thead>
           <tbody>
             {filtered.map((survey) => (
               <tr key={survey.id} className="border-t border-base-border">
                 <td className="p-2">{survey.title}</td>
-                <td className="p-2">{survey.creatorName || 'Unknown'}</td>
-                <td className="p-2">{survey.status}</td>
+                <td className="p-2">{survey.authorName || survey.creatorName || 'Unknown'}</td>
+                <td className="p-2">{survey.lastEditedBy || survey.authorName || survey.creatorName || 'Unknown'}</td>
+                <td className="p-2">{formatSurveyStatus(survey.status)}</td>
                 <td className="p-2">{survey.isTemplate ? 'Yes' : 'No'}</td>
                 <td className="p-2">
                   <div className="flex flex-wrap gap-2">

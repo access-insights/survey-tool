@@ -56,7 +56,9 @@ export interface Survey {
   id: string;
   orgId: string;
   ownerUserId: string;
+  authorName?: string;
   creatorName?: string;
+  lastEditedBy?: string;
   title: string;
   description: string;
   status: SurveyStatus;

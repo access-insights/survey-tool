@@ -212,6 +212,40 @@ const mapCreatorNames = async (ownerIds: string[]) => {
   return map;
 };
 
+const mapLatestSurveyEditors = async (orgId: string, surveyIds: string[]) => {
+  if (!surveyIds.length) return new Map<string, string>();
+
+  const { data: auditRows } = await supabase
+    .from('audit_log')
+    .select('resource_id,actor_user_id,created_at')
+    .eq('org_id', orgId)
+    .eq('resource_type', 'survey')
+    .in('resource_id', surveyIds)
+    .order('created_at', { ascending: false });
+
+  const latestEditorIdBySurvey = new Map<string, string>();
+  for (const row of auditRows ?? []) {
+    if (!row.actor_user_id || latestEditorIdBySurvey.has(row.resource_id)) continue;
+    latestEditorIdBySurvey.set(row.resource_id, row.actor_user_id);
+  }
+
+  const uniqueEditorIds = Array.from(new Set(latestEditorIdBySurvey.values()));
+  if (!uniqueEditorIds.length) return new Map<string, string>();
+
+  const { data: editorRows } = await supabase.from('users').select('id,full_name,email').in('id', uniqueEditorIds);
+  const editorNameById = new Map<string, string>();
+  for (const user of editorRows ?? []) {
+    editorNameById.set(user.id, user.full_name || user.email || '');
+  }
+
+  const latestEditorNameBySurvey = new Map<string, string>();
+  for (const [surveyId, editorId] of latestEditorIdBySurvey.entries()) {
+    const name = editorNameById.get(editorId);
+    if (name) latestEditorNameBySurvey.set(surveyId, name);
+  }
+  return latestEditorNameBySurvey;
+};
+
 const upsertSurveySchema = z.object({
   surveyId: z.string().uuid().optional(),
   title: z.string().min(3).max(200),
@@ -453,12 +487,16 @@ export const handler: Handler = async (event) => {
       const { data, error } = await query;
       if (error) throw new Error(error.message);
       const ownerMap = await mapCreatorNames(Array.from(new Set((data ?? []).map((row) => row.owner_user_id))));
+      const surveyIds = (data ?? []).map((row) => row.id);
+      const latestEditorMap = await mapLatestSurveyEditors(ctx.orgId, surveyIds);
       return json(200, {
         surveys: (data ?? []).map((row) => ({
           id: row.id,
           orgId: row.org_id,
           ownerUserId: row.owner_user_id,
+          authorName: ownerMap.get(row.owner_user_id) ?? '',
           creatorName: ownerMap.get(row.owner_user_id) ?? '',
+          lastEditedBy: latestEditorMap.get(row.id) ?? ownerMap.get(row.owner_user_id) ?? '',
           title: row.title,
           description: row.description,
           status: row.status,
@@ -497,7 +535,7 @@ export const handler: Handler = async (event) => {
         await ensureSurveyAccess(ctx, surveyId);
         await supabase
           .from('surveys')
-          .update({ title: input.title, description: input.description, is_template: input.isTemplate ?? false, updated_at: now })
+          .update({ title: input.title, description: input.description, status: 'draft', is_template: input.isTemplate ?? false, updated_at: now })
           .eq('id', surveyId);
       }
 

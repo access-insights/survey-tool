@@ -85,6 +85,8 @@ export function SurveyBuilderPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [status, setStatus] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [isPublished, setIsPublished] = useState(false);
+  const [inviteLink, setInviteLink] = useState('');
   const [previewValues, setPreviewValues] = useState<Record<string, string | string[]>>({});
 
   const {
@@ -118,6 +120,7 @@ export function SurveyBuilderPage() {
       .getSurveyVersion(token, surveyId)
       .then((result) => {
         setQuestions(result.version.questions.length ? result.version.questions : [makeQuestion()]);
+        setIsPublished(result.version.isPublished);
         reset({
           title: result.version.title,
           description: result.version.description,
@@ -129,6 +132,15 @@ export function SurveyBuilderPage() {
         });
       })
       .catch((error: Error) => setStatus(error.message));
+
+    void api
+      .listInvites(token, surveyId)
+      .then((result) => {
+        if (!result.invites.length) return;
+        const mostRecentInvite = result.invites[0];
+        setInviteLink(`${window.location.origin}/participant/${mostRecentInvite.token}`);
+      })
+      .catch(() => undefined);
   }, [surveyId, token, reset]);
 
   const persistDraft = async (values: SurveyForm) => {
@@ -160,10 +172,35 @@ export function SurveyBuilderPage() {
     setStatus('Draft preview updated');
   });
 
-  const discardDraft = () => {
-    const ok = window.confirm('Discard this draft and leave the Survey Builder? Unsaved changes will be lost.');
-    if (!ok) return;
-    navigate('/dashboard');
+  const saveDraft = handleSubmit(async (values) => {
+    await persistDraft(values);
+    setIsPublished(false);
+    setStatus('Draft saved');
+  });
+
+  const cloneSurvey = handleSubmit(async (values) => {
+    if (!token) return;
+    const persisted = await persistDraft(values);
+    if (!persisted?.surveyId) return;
+    const result = await api.duplicateSurvey(token, persisted.surveyId);
+    setStatus('Survey cloned');
+    navigate(`/builder/${result.surveyId}`);
+  });
+
+  const publishSurvey = handleSubmit(async (values) => {
+    if (!token) return;
+    const persisted = await persistDraft(values);
+    if (!persisted?.surveyId) return;
+    await api.publishSurvey(token, persisted.surveyId);
+    setIsPublished(true);
+    const inviteResult = await api.createInvite(token, persisted.surveyId);
+    setInviteLink(inviteResult.link);
+    setStatus('Survey published');
+  });
+
+  const cancelReview = () => {
+    setShowPreview(false);
+    setStatus('Draft review closed');
   };
 
   const moveQuestion = (index: number, nextIndex: number) => {
@@ -240,11 +277,6 @@ export function SurveyBuilderPage() {
             <input id="tags" className="target-size w-full rounded border border-base-border bg-base-bg px-2" {...register('tags')} />
           </div>
         </div>
-
-        <label className="target-size flex items-center gap-2" title="Save this survey as a reusable template for future projects.">
-          <input type="checkbox" {...register('isTemplate')} />
-          Save as template
-        </label>
 
         <section className="space-y-3 rounded border border-base-border bg-base-surface p-4">
           <h2 className="text-xl">Questions</h2>
@@ -442,9 +474,6 @@ export function SurveyBuilderPage() {
           <button type="button" className="target-size rounded bg-base-action px-4 py-2 text-base-actionText" onClick={() => { void previewDraft(); }}>
             Review Draft Survey
           </button>
-          <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={discardDraft}>
-            Discard
-          </button>
         </div>
       </form>
 
@@ -458,12 +487,13 @@ export function SurveyBuilderPage() {
             {currentIntroText && <p>{currentIntroText}</p>}
             {currentConsentBlurb && <p className="rounded border border-base-border p-3">{currentConsentBlurb}</p>}
             <p className="text-sm text-base-muted">Preview answers are local and not saved.</p>
-            {visiblePreviewQuestions.map((question) => {
+            {visiblePreviewQuestions.map((question, index) => {
               const value = previewValues[question.id];
               const baseClass = 'target-size w-full rounded border border-base-border bg-base-surface px-2';
 
               return (
                 <div key={question.id} className="space-y-2 rounded border border-base-border p-3">
+                  <p>Question {index + 1}</p>
                   {(question.type === 'single_choice' || question.type === 'yes_no' || question.type === 'likert') && (
                     <fieldset>
                       <legend>{question.label}</legend>
@@ -567,6 +597,29 @@ export function SurveyBuilderPage() {
               );
             })}
           </div>
+          <label className="target-size flex items-center gap-2" title="Save this survey as a reusable template for future projects.">
+            <input type="checkbox" {...register('isTemplate')} />
+            Save as template
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="target-size rounded bg-base-action px-4 py-2 text-base-actionText" onClick={() => { void saveDraft(); }}>
+              Save Draft
+            </button>
+            <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={() => { void cloneSurvey(); }}>
+              Clone
+            </button>
+            <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={() => { void publishSurvey(); }}>
+              Publish
+            </button>
+            <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={cancelReview}>
+              Cancel
+            </button>
+          </div>
+          {isPublished && inviteLink ? (
+            <p>
+              Published survey link: <a href={inviteLink}>{inviteLink}</a>
+            </p>
+          ) : null}
         </section>
       )}
     </section>
