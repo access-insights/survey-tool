@@ -99,8 +99,8 @@ export function DashboardPage() {
                   <div className="flex flex-wrap gap-2">
                     {canManageSurveys ? (
                       <>
-                        <Link className="target-size rounded border border-base-border px-2 py-1" to={`/reports/${survey.id}`}>
-                          View survey
+                        <Link className="target-size rounded border border-base-border px-2 py-1" to={`/surveys/${survey.id}/view`}>
+                          View
                         </Link>
                         <Link className="target-size rounded border border-base-border px-2 py-1" to={`/builder/${survey.id}`}>
                           Edit

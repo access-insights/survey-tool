@@ -10,6 +10,7 @@ import { ParticipantPage } from './pages/ParticipantPage';
 import { ReportPage } from './pages/ReportPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { SurveyBuilderPage } from './pages/SurveyBuilderPage';
+import { SurveyPreviewPage } from './pages/SurveyPreviewPage';
 import { UserGuidePage } from './pages/UserGuidePage';
 
 export default function App() {
@@ -56,6 +57,14 @@ export default function App() {
           element={
             <ProtectedRoute allow={['admin', 'creator']}>
               <ReportPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/surveys/:surveyId/view"
+          element={
+            <ProtectedRoute allow={['admin', 'creator']}>
+              <SurveyPreviewPage />
             </ProtectedRoute>
           }
         />
