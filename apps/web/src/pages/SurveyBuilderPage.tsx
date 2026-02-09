@@ -89,8 +89,9 @@ export function SurveyBuilderPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [showRegexHelp, setShowRegexHelp] = useState(false);
   const [showReorderDialog, setShowReorderDialog] = useState(false);
-  const [isPublished, setIsPublished] = useState(false);
-  const [inviteLink, setInviteLink] = useState('');
+  const [showActionDialog, setShowActionDialog] = useState(false);
+  const [actionDialogTitle, setActionDialogTitle] = useState('');
+  const [actionDialogLink, setActionDialogLink] = useState('');
   const [previewValues, setPreviewValues] = useState<Record<string, string | string[]>>({});
 
   const {
@@ -124,7 +125,6 @@ export function SurveyBuilderPage() {
       .getSurveyVersion(token, surveyId)
       .then((result) => {
         setQuestions(result.version.questions.length ? result.version.questions : [makeQuestion()]);
-        setIsPublished(result.version.isPublished);
         reset({
           title: clonedFromName ? '' : result.version.title,
           description: clonedFromName ? '' : result.version.description,
@@ -136,15 +136,6 @@ export function SurveyBuilderPage() {
         });
       })
       .catch((error: Error) => setStatus(error.message));
-
-    void api
-      .listInvites(token, surveyId)
-      .then((result) => {
-        if (!result.invites.length) return;
-        const mostRecentInvite = result.invites[0];
-        setInviteLink(`${window.location.origin}/participant/${mostRecentInvite.token}`);
-      })
-      .catch(() => undefined);
   }, [surveyId, token, reset, clonedFromName]);
 
   const persistDraft = async (values: SurveyForm) => {
@@ -179,8 +170,10 @@ export function SurveyBuilderPage() {
 
   const saveDraft = handleSubmit(async (values) => {
     await persistDraft(values);
-    setIsPublished(false);
     setStatus('Draft Saved');
+    setActionDialogTitle('Survey Saved');
+    setActionDialogLink('');
+    setShowActionDialog(true);
   });
 
   const cloneSurvey = handleSubmit(async (values) => {
@@ -199,10 +192,11 @@ export function SurveyBuilderPage() {
     const persisted = await persistDraft(values);
     if (!persisted?.surveyId) return;
     await api.publishSurvey(token, persisted.surveyId);
-    setIsPublished(true);
     const inviteResult = await api.createInvite(token, persisted.surveyId);
-    setInviteLink(inviteResult.link);
     setStatus('Survey published');
+    setActionDialogTitle('Survey Published');
+    setActionDialogLink(inviteResult.link);
+    setShowActionDialog(true);
   });
 
   const cancelReview = () => {
@@ -645,11 +639,6 @@ export function SurveyBuilderPage() {
               Cancel
             </button>
           </div>
-          {isPublished && inviteLink ? (
-            <p>
-              Published survey link: <a href={inviteLink}>{inviteLink}</a>
-            </p>
-          ) : null}
         </section>
       )}
       {showReorderDialog ? (
@@ -695,6 +684,33 @@ export function SurveyBuilderPage() {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+      {showActionDialog ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="action-dialog-title">
+          <div className="w-full max-w-xl space-y-3 rounded border border-base-border bg-base-surface p-4">
+            <h2 id="action-dialog-title" className="text-xl">{actionDialogTitle}</h2>
+            {actionDialogLink ? (
+              <div className="space-y-2">
+                <p>
+                  Published link: <a href={actionDialogLink}>{actionDialogLink}</a>
+                </p>
+                <button
+                  type="button"
+                  className="target-size rounded border border-base-border px-3 py-2"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(actionDialogLink);
+                    setStatus('Published link copied');
+                  }}
+                >
+                  Copy
+                </button>
+              </div>
+            ) : null}
+            <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => setShowActionDialog(false)}>
+              Close
+            </button>
           </div>
         </div>
       ) : null}

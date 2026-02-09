@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Progress } from '../components/Progress';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -153,6 +154,11 @@ export function SurveyPreviewPage() {
             {renderQuestion(question)}
           </div>
         ))}
+      </div>
+      <div>
+        <Link className="target-size inline-block rounded border border-base-border px-4 py-2" to="/dashboard">
+          Back to Dashboard
+        </Link>
       </div>
     </section>
   );
