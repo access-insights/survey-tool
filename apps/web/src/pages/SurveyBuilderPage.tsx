@@ -85,6 +85,8 @@ export function SurveyBuilderPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [status, setStatus] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [showRegexHelp, setShowRegexHelp] = useState(false);
+  const [reorderMode, setReorderMode] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
   const [previewValues, setPreviewValues] = useState<Record<string, string | string[]>>({});
@@ -94,6 +96,7 @@ export function SurveyBuilderPage() {
     handleSubmit,
     reset,
     watch,
+    getValues,
     formState: { errors }
   } = useForm<SurveyForm>({
     resolver: zodResolver(surveySchema),
@@ -169,6 +172,7 @@ export function SurveyBuilderPage() {
   const previewDraft = handleSubmit(async (values) => {
     await persistDraft(values);
     setShowPreview(true);
+    setReorderMode(false);
     setStatus('Draft preview updated');
   });
 
@@ -200,7 +204,21 @@ export function SurveyBuilderPage() {
 
   const cancelReview = () => {
     setShowPreview(false);
+    setReorderMode(false);
     setStatus('Draft review closed');
+  };
+
+  const saveAndViewAfterReorder = async () => {
+    const values = getValues();
+    const parsed = surveySchema.safeParse(values);
+    if (!parsed.success) {
+      setStatus('Enter title and description before saving question order');
+      return;
+    }
+    await persistDraft(parsed.data);
+    setReorderMode(false);
+    setShowPreview(true);
+    setStatus('Question order saved');
   };
 
   const moveQuestion = (index: number, nextIndex: number) => {
@@ -315,7 +333,15 @@ export function SurveyBuilderPage() {
                     checked={question.required}
                     onChange={(e) => updateQuestion(question.id, (current) => ({ ...current, required: e.target.checked }))}
                   />
-                  Required
+                  Required Field
+                </label>
+                <label className="flex items-center gap-2" title="Mark this answer as personally identifying information.">
+                  <input
+                    type="checkbox"
+                    checked={question.pii ?? false}
+                    onChange={(e) => updateQuestion(question.id, (current) => ({ ...current, pii: e.target.checked }))}
+                  />
+                  Mark as PII
                 </label>
               </div>
 
@@ -373,7 +399,17 @@ export function SurveyBuilderPage() {
 
               {isRegexType(question.type) && (
                 <label className="block md:max-w-xl" title="Regular expression pattern for text validation, such as ^[A-Za-z]+$.">
-                  <span className="mb-1 block">Regex</span>
+                  <span className="mb-1 flex items-center gap-2">
+                    <span>Regex</span>
+                    <button
+                      type="button"
+                      className="target-size rounded border border-base-border px-2 py-1 text-sm"
+                      aria-haspopup="dialog"
+                      onClick={() => setShowRegexHelp(true)}
+                    >
+                      What is Regex?
+                    </button>
+                  </span>
                   <input
                     className="target-size w-full rounded border border-base-border bg-base-bg px-2"
                     value={question.regex ?? ''}
@@ -383,15 +419,6 @@ export function SurveyBuilderPage() {
               )}
 
               <div className="grid gap-3 md:grid-cols-3">
-                <label className="flex items-center gap-2" title="Mark this answer as personally identifying information.">
-                  <input
-                    type="checkbox"
-                    checked={question.pii ?? false}
-                    onChange={(e) => updateQuestion(question.id, (current) => ({ ...current, pii: e.target.checked }))}
-                  />
-                  Mark as PII
-                </label>
-
                 {isOptionType(question.type) && (
                   <label className="flex items-center gap-2" title="Shuffle answer options for each participant.">
                     <input
@@ -450,14 +477,8 @@ export function SurveyBuilderPage() {
               </fieldset>
 
               <div className="flex flex-wrap gap-2">
-                <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => moveQuestion(index, index - 1)}>
-                  Move up
-                </button>
-                <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => moveQuestion(index, index + 1)}>
-                  Move down
-                </button>
                 <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => removeQuestion(question.id)}>
-                  Delete
+                  Discard Question
                 </button>
               </div>
             </article>
@@ -465,138 +486,182 @@ export function SurveyBuilderPage() {
 
           <div className="pt-1">
             <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => setQuestions((current) => [...current, makeQuestion()])}>
-              Add question
+              Add Next Question
             </button>
           </div>
         </section>
 
         <div className="flex flex-wrap gap-2">
           <button type="button" className="target-size rounded bg-base-action px-4 py-2 text-base-actionText" onClick={() => { void previewDraft(); }}>
-            Review Draft Survey
+            Review Survey Draft
           </button>
         </div>
       </form>
+
+      {showRegexHelp ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="regex-help-title">
+          <div className="w-full max-w-xl rounded border border-base-border bg-base-surface p-4">
+            <h2 id="regex-help-title" className="text-xl">Regex help</h2>
+            <p>Regex is a text pattern used to validate typed answers.</p>
+            <p>Examples:</p>
+            <p><code>{'^[A-Za-z]+$'}</code> letters only</p>
+            <p><code>{'^[0-9]{5}$'}</code> exactly five digits</p>
+            <p><code>{'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'}</code> email pattern</p>
+            <button type="button" className="target-size mt-2 rounded border border-base-border px-3 py-2" onClick={() => setShowRegexHelp(false)}>
+              Close
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {showPreview && (
         <section className="space-y-3 rounded border border-base-border bg-base-surface p-4">
           <h2 className="text-xl">Review Draft Survey</h2>
           <p className="text-sm">Participant preview mode. This reflects conditional logic and field types.</p>
+          {reorderMode ? (
+            <div className="space-y-3 rounded border border-base-border bg-base-bg p-4">
+              <h3 className="text-lg">Reorder Survey Questions</h3>
+              {questions.map((question, index) => (
+                <div key={question.id} className="flex items-center justify-between gap-3 rounded border border-base-border p-3">
+                  <p>
+                    {index + 1}. {question.label}
+                  </p>
+                  <div className="flex gap-2">
+                    <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => moveQuestion(index, index - 1)}>
+                      Move up
+                    </button>
+                    <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => moveQuestion(index, index + 1)}>
+                      Move down
+                    </button>
+                  </div>
+                </div>
+              ))}
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="target-size rounded bg-base-action px-4 py-2 text-base-actionText" onClick={() => { void saveAndViewAfterReorder(); }}>
+                  Save and View
+                </button>
+                <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={() => setReorderMode(false)}>
+                  Cancel Reorder
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4 rounded border border-base-border bg-base-bg p-4">
+              <h3 className="text-lg">{currentTitle || 'Untitled survey'}</h3>
+              {currentIntroText && <p>{currentIntroText}</p>}
+              {currentConsentBlurb && <p className="rounded border border-base-border p-3">{currentConsentBlurb}</p>}
+              <p className="text-sm text-base-muted">Preview answers are local and not saved.</p>
+              {visiblePreviewQuestions.map((question, index) => {
+                const value = previewValues[question.id];
+                const baseClass = 'target-size w-full rounded border border-base-border bg-base-surface px-2';
 
-          <div className="space-y-4 rounded border border-base-border bg-base-bg p-4">
-            <h3 className="text-lg">{currentTitle || 'Untitled survey'}</h3>
-            {currentIntroText && <p>{currentIntroText}</p>}
-            {currentConsentBlurb && <p className="rounded border border-base-border p-3">{currentConsentBlurb}</p>}
-            <p className="text-sm text-base-muted">Preview answers are local and not saved.</p>
-            {visiblePreviewQuestions.map((question, index) => {
-              const value = previewValues[question.id];
-              const baseClass = 'target-size w-full rounded border border-base-border bg-base-surface px-2';
-
-              return (
-                <div key={question.id} className="space-y-2 rounded border border-base-border p-3">
-                  <p>Question {index + 1}</p>
-                  {(question.type === 'single_choice' || question.type === 'yes_no' || question.type === 'likert') && (
-                    <fieldset>
-                      <legend>{question.label}</legend>
-                      {question.helpText && <p id={`${question.id}-preview-help`}>{question.helpText}</p>}
-                      {(question.type === 'yes_no' ? ['Yes', 'No'] : question.options ?? []).map((option) => (
-                        <label key={option} className="target-size flex items-center gap-2">
-                          <input
-                            type="radio"
-                            name={`${question.id}-preview`}
-                            value={option}
-                            checked={value === option}
-                            onChange={(e) => setPreviewValue(question.id, e.target.value)}
-                          />
-                          {option}
-                        </label>
-                      ))}
-                    </fieldset>
-                  )}
-
-                  {question.type === 'multiple_choice' && (
-                    <fieldset>
-                      <legend>{question.label}</legend>
-                      {question.helpText && <p id={`${question.id}-preview-help`}>{question.helpText}</p>}
-                      {(question.options ?? []).map((option) => {
-                        const selected = Array.isArray(value) ? value : [];
-                        const checked = selected.includes(option);
-                        return (
+                return (
+                  <div key={question.id} className="space-y-2 rounded border border-base-border p-3">
+                    <p>Question {index + 1}</p>
+                    {(question.type === 'single_choice' || question.type === 'yes_no' || question.type === 'likert') && (
+                      <fieldset>
+                        <legend>{question.label}</legend>
+                        {question.helpText && <p id={`${question.id}-preview-help`}>{question.helpText}</p>}
+                        {(question.type === 'yes_no' ? ['Yes', 'No'] : question.options ?? []).map((option) => (
                           <label key={option} className="target-size flex items-center gap-2">
                             <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={(e) => {
-                                const next = e.target.checked ? [...selected, option] : selected.filter((item) => item !== option);
-                                setPreviewValue(question.id, next);
-                              }}
+                              type="radio"
+                              name={`${question.id}-preview`}
+                              value={option}
+                              checked={value === option}
+                              onChange={(e) => setPreviewValue(question.id, e.target.value)}
                             />
                             {option}
                           </label>
-                        );
-                      })}
-                    </fieldset>
-                  )}
-
-                  {question.type === 'dropdown' && (
-                    <label className="block">
-                      <span className="mb-1 block">{question.label}</span>
-                      <select className={baseClass} value={typeof value === 'string' ? value : ''} onChange={(e) => setPreviewValue(question.id, e.target.value)}>
-                        <option value="">Select one</option>
-                        {(question.options ?? []).map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
                         ))}
-                      </select>
-                    </label>
-                  )}
+                      </fieldset>
+                    )}
 
-                  {question.type === 'long_text' && (
-                    <label className="block">
-                      <span className="mb-1 block">{question.label}</span>
-                      <textarea
-                        className="w-full rounded border border-base-border bg-base-surface p-2"
-                        value={typeof value === 'string' ? value : ''}
-                        onChange={(e) => setPreviewValue(question.id, e.target.value)}
-                      />
-                    </label>
-                  )}
+                    {question.type === 'multiple_choice' && (
+                      <fieldset>
+                        <legend>{question.label}</legend>
+                        {question.helpText && <p id={`${question.id}-preview-help`}>{question.helpText}</p>}
+                        {(question.options ?? []).map((option) => {
+                          const selected = Array.isArray(value) ? value : [];
+                          const checked = selected.includes(option);
+                          return (
+                            <label key={option} className="target-size flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => {
+                                  const next = e.target.checked ? [...selected, option] : selected.filter((item) => item !== option);
+                                  setPreviewValue(question.id, next);
+                                }}
+                              />
+                              {option}
+                            </label>
+                          );
+                        })}
+                      </fieldset>
+                    )}
 
-                  {question.type === 'consent' && (
-                    <label className="target-size flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={value === 'yes'}
-                        onChange={(e) => setPreviewValue(question.id, e.target.checked ? 'yes' : '')}
-                      />
-                      {question.label}
-                    </label>
-                  )}
+                    {question.type === 'dropdown' && (
+                      <label className="block">
+                        <span className="mb-1 block">{question.label}</span>
+                        <select className={baseClass} value={typeof value === 'string' ? value : ''} onChange={(e) => setPreviewValue(question.id, e.target.value)}>
+                          <option value="">Select one</option>
+                          {(question.options ?? []).map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
 
-                  {(question.type === 'short_text' ||
-                    question.type === 'number' ||
-                    question.type === 'email' ||
-                    question.type === 'phone' ||
-                    question.type === 'date') && (
-                    <label className="block">
-                      <span className="mb-1 block">{question.label}</span>
-                      <input
-                        type={question.type === 'email' || question.type === 'date' ? question.type : question.type === 'number' ? 'number' : 'text'}
-                        className={baseClass}
-                        value={typeof value === 'string' ? value : ''}
-                        onChange={(e) => setPreviewValue(question.id, e.target.value)}
-                        min={question.min}
-                        max={question.max}
-                        maxLength={question.maxLength}
-                      />
-                    </label>
-                  )}
+                    {question.type === 'long_text' && (
+                      <label className="block">
+                        <span className="mb-1 block">{question.label}</span>
+                        <textarea
+                          className="w-full rounded border border-base-border bg-base-surface p-2"
+                          value={typeof value === 'string' ? value : ''}
+                          onChange={(e) => setPreviewValue(question.id, e.target.value)}
+                        />
+                      </label>
+                    )}
 
-                  {question.helpText && <p className="text-sm text-base-muted">{question.helpText}</p>}
-                </div>
-              );
-            })}
-          </div>
+                    {question.type === 'consent' && (
+                      <label className="target-size flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={value === 'yes'}
+                          onChange={(e) => setPreviewValue(question.id, e.target.checked ? 'yes' : '')}
+                        />
+                        {question.label}
+                      </label>
+                    )}
+
+                    {(question.type === 'short_text' ||
+                      question.type === 'number' ||
+                      question.type === 'email' ||
+                      question.type === 'phone' ||
+                      question.type === 'date') && (
+                      <label className="block">
+                        <span className="mb-1 block">{question.label}</span>
+                        <input
+                          type={question.type === 'email' || question.type === 'date' ? question.type : question.type === 'number' ? 'number' : 'text'}
+                          className={baseClass}
+                          value={typeof value === 'string' ? value : ''}
+                          onChange={(e) => setPreviewValue(question.id, e.target.value)}
+                          min={question.min}
+                          max={question.max}
+                          maxLength={question.maxLength}
+                        />
+                      </label>
+                    )}
+
+                    {question.helpText && <p className="text-sm text-base-muted">{question.helpText}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <label className="target-size flex items-center gap-2" title="Save this survey as a reusable template for future projects.">
             <input type="checkbox" {...register('isTemplate')} />
             Save as template
@@ -613,6 +678,9 @@ export function SurveyBuilderPage() {
             </button>
             <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={cancelReview}>
               Cancel
+            </button>
+            <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={() => setReorderMode(true)}>
+              Reorder Survey Questions
             </button>
           </div>
           {isPublished && inviteLink ? (
