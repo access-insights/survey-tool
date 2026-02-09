@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { shouldShowQuestion } from '../lib/surveyValidation';
-import type { Invite, Question, QuestionType } from '../types';
+import type { Question, QuestionType } from '../types';
 
 const surveySchema = z.object({
   title: z.string().min(3),
@@ -84,16 +84,14 @@ export function SurveyBuilderPage() {
   const { token } = useAuth();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [status, setStatus] = useState('');
-  const [inviteLink, setInviteLink] = useState('');
-  const [invites, setInvites] = useState<Invite[]>([]);
   const [showPreview, setShowPreview] = useState(false);
-  const [isPublished, setIsPublished] = useState(false);
   const [previewValues, setPreviewValues] = useState<Record<string, string | string[]>>({});
 
   const {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors }
   } = useForm<SurveyForm>({
     resolver: zodResolver(surveySchema),
@@ -120,7 +118,6 @@ export function SurveyBuilderPage() {
       .getSurveyVersion(token, surveyId)
       .then((result) => {
         setQuestions(result.version.questions.length ? result.version.questions : [makeQuestion()]);
-        setIsPublished(result.version.isPublished);
         reset({
           title: result.version.title,
           description: result.version.description,
@@ -131,11 +128,6 @@ export function SurveyBuilderPage() {
           isTemplate: false
         });
       })
-      .catch((error: Error) => setStatus(error.message));
-
-    void api
-      .listInvites(token, surveyId)
-      .then((result) => setInvites(result.invites))
       .catch((error: Error) => setStatus(error.message));
   }, [surveyId, token, reset]);
 
@@ -162,55 +154,16 @@ export function SurveyBuilderPage() {
     return result;
   };
 
-  const saveDraft = handleSubmit(async (values) => {
-    await persistDraft(values);
-    setStatus('Draft saved');
-  });
-
-  const saveAndAddQuestion = handleSubmit(async (values) => {
-    await persistDraft(values);
-    setQuestions((current) => [...current, makeQuestion()]);
-    setStatus('Draft saved and new question added');
-  });
-
   const previewDraft = handleSubmit(async (values) => {
     await persistDraft(values);
     setShowPreview(true);
     setStatus('Draft preview updated');
   });
 
-  const publishSurvey = async () => {
-    if (!token || !surveyId) return;
-    try {
-      await api.publishSurvey(token, surveyId);
-      setIsPublished(true);
-      setStatus('Survey published');
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Failed to publish survey');
-    }
-  };
-
-  const createInvite = async () => {
-    if (!token || !surveyId) return;
-    try {
-      if (!isPublished) {
-        await api.publishSurvey(token, surveyId);
-        setIsPublished(true);
-      }
-      const result = await api.createInvite(token, surveyId);
-      setInviteLink(result.link);
-      const inviteResult = await api.listInvites(token, surveyId);
-      setInvites(inviteResult.invites);
-      setStatus('Survey link created');
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Failed to create survey link');
-    }
-  };
-
-  const copyInviteLink = async () => {
-    if (!inviteLink) return;
-    await navigator.clipboard.writeText(inviteLink);
-    setStatus('Survey link copied to clipboard');
+  const discardDraft = () => {
+    const ok = window.confirm('Discard this draft and leave the Survey Builder? Unsaved changes will be lost.');
+    if (!ok) return;
+    navigate('/dashboard');
   };
 
   const moveQuestion = (index: number, nextIndex: number) => {
@@ -234,15 +187,23 @@ export function SurveyBuilderPage() {
   const setPreviewValue = (questionId: string, value: string | string[]) => {
     setPreviewValues((current) => ({ ...current, [questionId]: value }));
   };
+  const currentTitle = watch('title');
+  const currentIntroText = watch('introText');
+  const currentConsentBlurb = watch('consentBlurb');
 
   return (
     <section className="space-y-5">
-      <h1 className="text-2xl">Survey builder</h1>
+      <h1 className="text-2xl">Survey Builder</h1>
       <p aria-live="polite" className="text-sm">
         {status}
       </p>
 
-      <form onSubmit={saveDraft} className="space-y-4 rounded border border-base-border bg-base-surface p-4">
+      <form
+        className="space-y-4 rounded border border-base-border bg-base-surface p-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+        }}
+      >
         <div>
           <HelperLabel htmlFor="title" text="Title" helper="Internal title shown in dashboards and invite listings." />
           <input id="title" className="target-size w-full rounded border border-base-border bg-base-bg px-2" {...register('title')} aria-invalid={Boolean(errors.title)} />
@@ -250,7 +211,11 @@ export function SurveyBuilderPage() {
         </div>
 
         <div>
-          <HelperLabel htmlFor="description" text="Description" helper="Short summary of survey purpose for your team." />
+          <HelperLabel
+            htmlFor="description"
+            text="Description (Does not appear on participant view of the survey)"
+            helper="Short summary of survey purpose for your team."
+          />
           <textarea id="description" className="w-full rounded border border-base-border bg-base-bg p-2" {...register('description')} aria-invalid={Boolean(errors.description)} />
         </div>
 
@@ -474,24 +439,24 @@ export function SurveyBuilderPage() {
         </section>
 
         <div className="flex flex-wrap gap-2">
-          <button type="submit" className="target-size rounded bg-base-action px-4 py-2 text-base-actionText">
-            Save draft
+          <button type="button" className="target-size rounded bg-base-action px-4 py-2 text-base-actionText" onClick={() => { void previewDraft(); }}>
+            Review Draft Survey
           </button>
-          <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={() => { void saveAndAddQuestion(); }}>
-            Save and add new question
-          </button>
-          <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={() => { void previewDraft(); }}>
-            Preview draft survey
+          <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={discardDraft}>
+            Discard
           </button>
         </div>
       </form>
 
       {showPreview && (
         <section className="space-y-3 rounded border border-base-border bg-base-surface p-4">
-          <h2 className="text-xl">Preview current draft</h2>
+          <h2 className="text-xl">Review Draft Survey</h2>
           <p className="text-sm">Participant preview mode. This reflects conditional logic and field types.</p>
 
           <div className="space-y-4 rounded border border-base-border bg-base-bg p-4">
+            <h3 className="text-lg">{currentTitle || 'Untitled survey'}</h3>
+            {currentIntroText && <p>{currentIntroText}</p>}
+            {currentConsentBlurb && <p className="rounded border border-base-border p-3">{currentConsentBlurb}</p>}
             <p className="text-sm text-base-muted">Preview answers are local and not saved.</p>
             {visiblePreviewQuestions.map((question) => {
               const value = previewValues[question.id];
@@ -602,50 +567,6 @@ export function SurveyBuilderPage() {
               );
             })}
           </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className="target-size rounded bg-base-action px-3 py-2 text-base-actionText" onClick={publishSurvey} disabled={!surveyId}>
-              Publish
-            </button>
-            <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={createInvite} disabled={!surveyId}>
-              Create survey link
-            </button>
-          </div>
-
-          {inviteLink && (
-            <div className="flex flex-wrap items-center gap-2">
-              <p>
-                Share link: <a href={inviteLink}>{inviteLink}</a>
-              </p>
-              <button type="button" className="target-size rounded border border-base-border px-3 py-1" onClick={() => { void copyInviteLink(); }}>
-                Copy
-              </button>
-            </div>
-          )}
-
-          {invites.length > 0 && (
-            <div className="overflow-x-auto rounded border border-base-border">
-              <table className="min-w-full">
-                <caption className="sr-only">Invite list</caption>
-                <thead>
-                  <tr>
-                    <th className="p-2 text-left">Status</th>
-                    <th className="p-2 text-left">Email</th>
-                    <th className="p-2 text-left">Expires</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invites.map((invite) => (
-                    <tr key={invite.id} className="border-t border-base-border">
-                      <td className="p-2">{invite.status}</td>
-                      <td className="p-2">{invite.email || 'N/A'}</td>
-                      <td className="p-2">{invite.expiresAt || 'No expiration'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </section>
       )}
     </section>
