@@ -19,11 +19,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         Skip to main content
       </a>
       <header className="border-b border-base-border bg-base-surface">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 p-4">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 p-3">
           <Link to="/" className="flex items-center gap-3 text-xl" aria-label={t('en', 'appName')}>
             <picture>
               <source srcSet="/access_insights_logo_inverse.png" media="(prefers-color-scheme: dark), (forced-colors: active)" />
-              <img src="/access_insights_logo.png" alt="" aria-hidden="true" className="h-24 w-auto" />
+              <img src="/access_insights_logo.png" alt="" aria-hidden="true" className="h-16 w-auto" />
             </picture>
             <span>{t('en', 'appName')}</span>
           </Link>
@@ -83,7 +83,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         {profile && mobileMenuOpen ? (
-          <div id="primary-nav-mobile" className="border-t border-base-border p-4 md:hidden">
+          <div id="primary-nav-mobile" className="border-t border-base-border p-3 md:hidden">
             <nav aria-label="Primary" className="flex flex-col gap-2">
               <NavLink className="target-size rounded px-3 py-2" to="/dashboard">
                 Dashboard

@@ -147,6 +147,9 @@ export function MySurveysPage() {
                     <Link className="target-size rounded border border-base-border px-2 py-1" to={`/builder/${survey.id}`}>
                       Edit
                     </Link>
+                    <Link className="target-size rounded border border-base-border px-2 py-1" to={`/reports/${survey.id}`}>
+                      View Report
+                    </Link>
                     <button
                       type="button"
                       className="target-size rounded border border-base-border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-60"
