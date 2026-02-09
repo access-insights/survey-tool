@@ -109,6 +109,7 @@ export interface QuestionBankItem {
   regex?: string;
   maxLength?: number;
   pii?: boolean;
+  randomizeOptions?: boolean;
   logic?: LogicRule;
   createdByName: string;
   createdAt: string;

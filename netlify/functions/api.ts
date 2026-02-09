@@ -269,7 +269,7 @@ const similarityScore = (left: string, right: string) => {
 const findQuestionBankDuplicate = async (orgId: string, label: string, excludeQuestionId?: string) => {
   const { data, error } = await supabase
     .from('question_bank')
-    .select('id,label,type,required,help_text,options_json,min_value,max_value,regex,max_length,pii,logic_json,created_by,created_at')
+    .select('id,label,type,required,help_text,options_json,min_value,max_value,regex,max_length,pii,randomize_options,logic_json,created_by,created_at')
     .eq('org_id', orgId)
     .is('archived_at', null)
     .limit(1000);
@@ -335,6 +335,7 @@ const questionBankQuestionSchema = z.object({
   regex: z.string().optional(),
   maxLength: z.number().optional(),
   pii: z.boolean().optional(),
+  randomizeOptions: z.boolean().optional(),
   logic: z
     .object({
       questionId: z.string(),
@@ -660,6 +661,7 @@ export const handler: Handler = async (event) => {
             regex: question.regex,
             max_length: question.maxLength,
             pii: question.pii ?? false,
+            randomize_options: question.randomizeOptions ?? false,
             logic_json: question.logic ?? null
           });
         }
@@ -676,7 +678,7 @@ export const handler: Handler = async (event) => {
       roleGuard(ctx, ['admin', 'creator']);
       const { data, error } = await supabase
         .from('question_bank')
-        .select('id,label,type,required,help_text,options_json,min_value,max_value,regex,max_length,pii,logic_json,created_by,created_at')
+        .select('id,label,type,required,help_text,options_json,min_value,max_value,regex,max_length,pii,randomize_options,logic_json,created_by,created_at')
         .eq('org_id', ctx.orgId)
         .is('archived_at', null)
         .order('created_at', { ascending: false })
@@ -705,6 +707,7 @@ export const handler: Handler = async (event) => {
           regex: row.regex ?? undefined,
           maxLength: row.max_length ?? undefined,
           pii: row.pii ?? false,
+          randomizeOptions: row.randomize_options ?? false,
           logic: row.logic_json ?? undefined,
           createdByName: creatorMap.get(row.created_by) ?? 'Unknown',
           createdAt: row.created_at
@@ -720,7 +723,7 @@ export const handler: Handler = async (event) => {
       if (duplicate && !input.allowDuplicate) {
         return json(409, { message: 'Potential duplicate found' });
       }
-      await supabase.from('question_bank').insert({
+      const { error: insertError } = await supabase.from('question_bank').insert({
         org_id: ctx.orgId,
         created_by: ctx.userId,
         label: question.label,
@@ -733,8 +736,10 @@ export const handler: Handler = async (event) => {
         regex: question.regex,
         max_length: question.maxLength,
         pii: question.pii ?? false,
+        randomize_options: question.randomizeOptions ?? false,
         logic_json: question.logic ?? null
       });
+      if (insertError) throw new Error(insertError.message);
       await recordAudit(ctx, 'add_question_bank_question', 'question_bank', 'bulk_add');
       return json(200, { ok: true });
     }
@@ -761,6 +766,7 @@ export const handler: Handler = async (event) => {
           regex: duplicate.regex ?? undefined,
           maxLength: duplicate.max_length ?? undefined,
           pii: duplicate.pii ?? false,
+          randomizeOptions: duplicate.randomize_options ?? false,
           logic: duplicate.logic_json ?? undefined,
           createdByName: creator?.full_name || creator?.email || 'Unknown',
           createdAt: duplicate.created_at
@@ -784,6 +790,7 @@ export const handler: Handler = async (event) => {
           regex: input.question.regex,
           max_length: input.question.maxLength,
           pii: input.question.pii ?? false,
+          randomize_options: input.question.randomizeOptions ?? false,
           logic_json: input.question.logic ?? null,
           updated_at: new Date().toISOString()
         })
@@ -818,7 +825,7 @@ export const handler: Handler = async (event) => {
       const input = buildSurveyFromBankSchema.parse(body);
       const { data: bankRows, error: bankError } = await supabase
         .from('question_bank')
-        .select('id,label,type,required,help_text,options_json,min_value,max_value,regex,max_length,pii,logic_json')
+        .select('id,label,type,required,help_text,options_json,min_value,max_value,regex,max_length,pii,randomize_options,logic_json')
         .eq('org_id', ctx.orgId)
         .in('id', input.questionIds);
       if (bankError) throw new Error(bankError.message);
@@ -854,6 +861,7 @@ export const handler: Handler = async (event) => {
         regex: row?.regex ?? undefined,
         maxLength: row?.max_length ?? undefined,
         pii: row?.pii ?? false,
+        randomizeOptions: row?.randomize_options ?? false,
         logic: row?.logic_json ?? undefined
       }));
 
