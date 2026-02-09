@@ -660,23 +660,25 @@ export function SurveyBuilderPage() {
       )}
       {showReorderDialog ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="reorder-title">
-          <div className="w-full max-w-2xl space-y-3 rounded border border-base-border bg-base-surface p-4">
+          <div className="flex max-h-[85vh] w-full max-w-2xl flex-col space-y-3 overflow-hidden rounded border border-base-border bg-base-surface p-4">
             <h2 id="reorder-title" className="text-xl">Reorder Survey Questions</h2>
-            {reorderQuestions.map((question, index) => (
-              <div key={question.id} className="flex items-center justify-between gap-3 rounded border border-base-border p-3">
-                <p>
-                  {index + 1}. {question.label}
-                </p>
-                <div className="flex gap-2">
-                  <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => moveReorderQuestion(index, index - 1)}>
-                    Move up
-                  </button>
-                  <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => moveReorderQuestion(index, index + 1)}>
-                    Move down
-                  </button>
+            <div className="space-y-2 overflow-y-auto pr-1">
+              {reorderQuestions.map((question, index) => (
+                <div key={question.id} className="flex items-center justify-between gap-3 rounded border border-base-border p-3">
+                  <p>
+                    {index + 1}. {question.label}
+                  </p>
+                  <div className="flex gap-2">
+                    <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => moveReorderQuestion(index, index - 1)}>
+                      Move up
+                    </button>
+                    <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => moveReorderQuestion(index, index + 1)}>
+                      Move down
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"

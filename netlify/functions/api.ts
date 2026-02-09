@@ -318,6 +318,10 @@ const buildSurveyFromBankSchema = z.object({
   questionIds: z.array(z.string().uuid()).min(1).max(100)
 });
 
+const questionBankIdSchema = z.object({
+  questionId: z.string().uuid()
+});
+
 function csvEscape(value: unknown) {
   const str = String(value ?? '');
   if (str.includes(',') || str.includes('"') || str.includes('\n')) {
@@ -623,6 +627,7 @@ export const handler: Handler = async (event) => {
         .from('question_bank')
         .select('id,label,type,required,help_text,options_json,min_value,max_value,regex,max_length,pii,logic_json,created_by,created_at')
         .eq('org_id', ctx.orgId)
+        .is('archived_at', null)
         .order('created_at', { ascending: false })
         .limit(1000);
       if (error) throw new Error(error.message);
@@ -676,6 +681,51 @@ export const handler: Handler = async (event) => {
         logic_json: question.logic ?? null
       });
       await recordAudit(ctx, 'add_question_bank_question', 'question_bank', 'bulk_add');
+      return json(200, { ok: true });
+    }
+
+    if (action === 'editQuestionBankQuestion') {
+      roleGuard(ctx, ['admin', 'creator']);
+      const input = z.object({ questionId: z.string().uuid(), question: questionBankQuestionSchema }).parse(body);
+      await supabase
+        .from('question_bank')
+        .update({
+          label: input.question.label,
+          type: input.question.type,
+          required: input.question.required,
+          help_text: input.question.helpText,
+          options_json: input.question.options ?? null,
+          min_value: input.question.min,
+          max_value: input.question.max,
+          regex: input.question.regex,
+          max_length: input.question.maxLength,
+          pii: input.question.pii ?? false,
+          logic_json: input.question.logic ?? null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', input.questionId)
+        .eq('org_id', ctx.orgId);
+      await recordAudit(ctx, 'edit_question_bank_question', 'question_bank', input.questionId);
+      return json(200, { ok: true });
+    }
+
+    if (action === 'archiveQuestionBankQuestion') {
+      roleGuard(ctx, ['admin', 'creator']);
+      const input = questionBankIdSchema.parse(body);
+      await supabase
+        .from('question_bank')
+        .update({ archived_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('id', input.questionId)
+        .eq('org_id', ctx.orgId);
+      await recordAudit(ctx, 'archive_question_bank_question', 'question_bank', input.questionId);
+      return json(200, { ok: true });
+    }
+
+    if (action === 'deleteQuestionBankQuestion') {
+      roleGuard(ctx, ['admin']);
+      const input = questionBankIdSchema.parse(body);
+      await supabase.from('question_bank').delete().eq('id', input.questionId).eq('org_id', ctx.orgId);
+      await recordAudit(ctx, 'delete_question_bank_question', 'question_bank', input.questionId);
       return json(200, { ok: true });
     }
 

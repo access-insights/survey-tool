@@ -49,6 +49,12 @@ export const api = {
   exportCsv: (token: string, surveyId: string) => apiFetch<{ csv: string }>('exportCsv', token, { surveyId }),
   listQuestionBank: (token: string) => apiFetch<{ questions: QuestionBankItem[] }>('listQuestionBank', token),
   addQuestionToBank: (token: string, question: Question) => apiFetch<{ ok: true }>('addQuestionToBank', token, { question }),
+  editQuestionBankQuestion: (token: string, questionId: string, question: Question) =>
+    apiFetch<{ ok: true }>('editQuestionBankQuestion', token, { questionId, question }),
+  archiveQuestionBankQuestion: (token: string, questionId: string) =>
+    apiFetch<{ ok: true }>('archiveQuestionBankQuestion', token, { questionId }),
+  deleteQuestionBankQuestion: (token: string, questionId: string) =>
+    apiFetch<{ ok: true }>('deleteQuestionBankQuestion', token, { questionId }),
   buildSurveyFromQuestionBank: (token: string, questionIds: string[]) =>
     apiFetch<{ surveyId: string }>('buildSurveyFromQuestionBank', token, { questionIds })
 };
