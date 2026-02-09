@@ -19,8 +19,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         Skip to main content
       </a>
       <header className="border-b border-base-border bg-base-surface">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 p-3">
-          <Link to="/" className="flex items-center gap-3 text-xl" aria-label={t('en', 'appName')}>
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 p-3">
+          <Link to="/" className="flex items-center gap-2 text-lg" aria-label={t('en', 'appName')}>
             <picture>
               <source srcSet="/access_insights_logo_inverse.png" media="(prefers-color-scheme: dark), (forced-colors: active)" />
               <img src="/access_insights_logo.png" alt="" aria-hidden="true" className="h-16 w-auto" />
@@ -41,7 +41,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 Menu
               </button>
 
-              <nav aria-label="Primary" className="hidden items-center gap-2 md:flex">
+              <nav aria-label="Primary" className="hidden flex-nowrap items-center gap-1 md:flex">
                 <NavLink className="target-size rounded px-3 py-2" to="/dashboard">
                   Dashboard
                 </NavLink>
@@ -70,7 +70,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </>
           ) : null}
 
-          <div className="hidden items-center gap-2 md:flex">
+          <div className="ml-auto hidden items-center gap-2 md:flex">
             {profile ? (
               <>
                 <span className="text-sm">{profile.fullName || profile.email}</span>

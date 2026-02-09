@@ -36,6 +36,7 @@ export interface Question {
   randomizeOptions?: boolean;
   logic?: LogicRule;
   addToQuestionBank?: boolean;
+  addToQuestionBankForce?: boolean;
 }
 
 export interface SurveyVersion {

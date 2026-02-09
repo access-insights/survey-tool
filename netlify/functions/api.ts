@@ -246,6 +246,49 @@ const mapLatestSurveyEditors = async (orgId: string, surveyIds: string[]) => {
   return latestEditorNameBySurvey;
 };
 
+const normalizeText = (value: string) => value.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+
+const tokenSet = (value: string) => new Set(normalizeText(value).split(' ').filter((token) => token.length > 1));
+
+const similarityScore = (left: string, right: string) => {
+  const leftTokens = tokenSet(left);
+  const rightTokens = tokenSet(right);
+  if (leftTokens.size === 0 || rightTokens.size === 0) return 0;
+  let intersection = 0;
+  for (const token of leftTokens) {
+    if (rightTokens.has(token)) intersection += 1;
+  }
+  const union = new Set([...leftTokens, ...rightTokens]).size;
+  const jaccard = union ? intersection / union : 0;
+  const leftNormalized = normalizeText(left);
+  const rightNormalized = normalizeText(right);
+  const containsBoost = leftNormalized.includes(rightNormalized) || rightNormalized.includes(leftNormalized) ? 0.2 : 0;
+  return Math.min(1, jaccard + containsBoost);
+};
+
+const findQuestionBankDuplicate = async (orgId: string, label: string, excludeQuestionId?: string) => {
+  const { data, error } = await supabase
+    .from('question_bank')
+    .select('id,label,type,required,help_text,options_json,min_value,max_value,regex,max_length,pii,logic_json,created_by,created_at')
+    .eq('org_id', orgId)
+    .is('archived_at', null)
+    .limit(1000);
+  if (error) throw new Error(error.message);
+
+  let best: (typeof data)[number] | undefined;
+  let bestScore = 0;
+  for (const candidate of data ?? []) {
+    if (excludeQuestionId && candidate.id === excludeQuestionId) continue;
+    const score = similarityScore(label, candidate.label);
+    if (score > bestScore) {
+      bestScore = score;
+      best = candidate;
+    }
+  }
+  if (!best || bestScore < 0.72) return null;
+  return best;
+};
+
 const upsertSurveySchema = z.object({
   surveyId: z.string().uuid().optional(),
   title: z.string().min(3).max(200),
@@ -269,6 +312,7 @@ const upsertSurveySchema = z.object({
       pii: z.boolean().optional(),
       randomizeOptions: z.boolean().optional(),
       addToQuestionBank: z.boolean().optional(),
+      addToQuestionBankForce: z.boolean().optional(),
       logic: z
         .object({
           questionId: z.string(),
@@ -599,22 +643,29 @@ export const handler: Handler = async (event) => {
 
       const bankQuestions = input.questions.filter((question) => question.addToQuestionBank);
       if (bankQuestions.length > 0) {
-        const rows = bankQuestions.map((question) => ({
-          org_id: ctx.orgId,
-          created_by: ctx.userId,
-          label: question.label,
-          type: question.type,
-          required: question.required,
-          help_text: question.helpText,
-          options_json: question.options ?? null,
-          min_value: question.min,
-          max_value: question.max,
-          regex: question.regex,
-          max_length: question.maxLength,
-          pii: question.pii ?? false,
-          logic_json: question.logic ?? null
-        }));
-        await supabase.from('question_bank').insert(rows);
+        const rows: Record<string, unknown>[] = [];
+        for (const question of bankQuestions) {
+          const duplicate = await findQuestionBankDuplicate(ctx.orgId, question.label);
+          if (duplicate && !question.addToQuestionBankForce) continue;
+          rows.push({
+            org_id: ctx.orgId,
+            created_by: ctx.userId,
+            label: question.label,
+            type: question.type,
+            required: question.required,
+            help_text: question.helpText,
+            options_json: question.options ?? null,
+            min_value: question.min,
+            max_value: question.max,
+            regex: question.regex,
+            max_length: question.maxLength,
+            pii: question.pii ?? false,
+            logic_json: question.logic ?? null
+          });
+        }
+        if (rows.length > 0) {
+          await supabase.from('question_bank').insert(rows);
+        }
       }
 
       await recordAudit(ctx, 'upsert_survey', 'survey', surveyId, { version: nextVersion });
@@ -663,8 +714,12 @@ export const handler: Handler = async (event) => {
 
     if (action === 'addQuestionToBank') {
       roleGuard(ctx, ['admin', 'creator']);
-      const input = z.object({ question: questionBankQuestionSchema }).parse(body);
+      const input = z.object({ question: questionBankQuestionSchema, allowDuplicate: z.boolean().optional() }).parse(body);
       const question = input.question;
+      const duplicate = await findQuestionBankDuplicate(ctx.orgId, question.label);
+      if (duplicate && !input.allowDuplicate) {
+        return json(409, { message: 'Potential duplicate found' });
+      }
       await supabase.from('question_bank').insert({
         org_id: ctx.orgId,
         created_by: ctx.userId,
@@ -682,6 +737,35 @@ export const handler: Handler = async (event) => {
       });
       await recordAudit(ctx, 'add_question_bank_question', 'question_bank', 'bulk_add');
       return json(200, { ok: true });
+    }
+
+    if (action === 'checkQuestionBankDuplicate') {
+      roleGuard(ctx, ['admin', 'creator']);
+      const input = z.object({ label: z.string().min(2), excludeQuestionId: z.string().uuid().optional() }).parse(body);
+      const duplicate = await findQuestionBankDuplicate(ctx.orgId, input.label, input.excludeQuestionId);
+      if (!duplicate) return json(200, { duplicate: undefined });
+
+      const { data: creator } = duplicate.created_by
+        ? await supabase.from('users').select('id,full_name,email').eq('id', duplicate.created_by).maybeSingle()
+        : { data: null as { id: string; full_name: string; email: string } | null };
+      return json(200, {
+        duplicate: {
+          id: duplicate.id,
+          label: duplicate.label,
+          type: duplicate.type,
+          required: duplicate.required,
+          helpText: duplicate.help_text ?? undefined,
+          options: duplicate.options_json ?? undefined,
+          min: duplicate.min_value ?? undefined,
+          max: duplicate.max_value ?? undefined,
+          regex: duplicate.regex ?? undefined,
+          maxLength: duplicate.max_length ?? undefined,
+          pii: duplicate.pii ?? false,
+          logic: duplicate.logic_json ?? undefined,
+          createdByName: creator?.full_name || creator?.email || 'Unknown',
+          createdAt: duplicate.created_at
+        }
+      });
     }
 
     if (action === 'editQuestionBankQuestion') {

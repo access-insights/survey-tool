@@ -41,6 +41,9 @@ export function QuestionBankPage() {
   const [editRequired, setEditRequired] = useState(false);
   const [editHelpText, setEditHelpText] = useState('');
   const [editOptionsText, setEditOptionsText] = useState('');
+  const [pendingAddQuestion, setPendingAddQuestion] = useState<Question | null>(null);
+  const [duplicateQuestion, setDuplicateQuestion] = useState<QuestionBankItem | null>(null);
+  const [showAddedDialog, setShowAddedDialog] = useState(false);
 
   const loadQuestionBank = useCallback(async () => {
     if (!token) return;
@@ -62,34 +65,49 @@ export function QuestionBankPage() {
     setSelectedIds((current) => (current.includes(questionId) ? current.filter((id) => id !== questionId) : [...current, questionId]));
   };
 
-  const addQuestionToBank = async () => {
+  const addQuestionToBank = async (allowDuplicate = false) => {
     if (!token) return;
-    if (label.trim().length < 2) {
+    const questionLabel = pendingAddQuestion?.label ?? label.trim();
+    if (questionLabel.length < 2) {
       setStatus('Enter a question label');
       return;
     }
 
-    const question: Question = {
-      id: crypto.randomUUID(),
-      label: label.trim(),
-      type,
-      required,
-      helpText: helpText.trim() || undefined,
-      options: isOptionType(type)
-        ? optionsText
-            .split('\n')
-            .map((x) => x.trim())
-            .filter(Boolean)
-        : undefined
-    };
+    const question: Question =
+      pendingAddQuestion ??
+      {
+        id: crypto.randomUUID(),
+        label: label.trim(),
+        type,
+        required,
+        helpText: helpText.trim() || undefined,
+        options: isOptionType(type)
+          ? optionsText
+              .split('\n')
+              .map((x) => x.trim())
+              .filter(Boolean)
+          : undefined
+      };
 
-    await api.addQuestionToBank(token, question);
+    if (!allowDuplicate) {
+      const duplicateCheck = await api.checkQuestionBankDuplicate(token, question.label);
+      if (duplicateCheck.duplicate) {
+        setPendingAddQuestion(question);
+        setDuplicateQuestion(duplicateCheck.duplicate);
+        return;
+      }
+    }
+
+    await api.addQuestionToBank(token, question, allowDuplicate);
     setStatus('Question added to bank');
     setLabel('');
     setType('short_text');
     setRequired(false);
     setHelpText('');
     setOptionsText('');
+    setPendingAddQuestion(null);
+    setDuplicateQuestion(null);
+    setShowAddedDialog(true);
     await loadQuestionBank();
   };
 
@@ -159,53 +177,20 @@ export function QuestionBankPage() {
       <h1 className="text-2xl">Question Bank</h1>
       <p>Choose questions from your bank to build a new survey draft.</p>
       <p aria-live="polite">{status}</p>
-
-      <section className="space-y-3 rounded border border-base-border bg-base-surface p-4">
-        <h2 className="text-xl">Add new question to bank</h2>
-        <label className="block">
-          <span className="mb-1 block">Question label</span>
-          <input className="target-size w-full rounded border border-base-border bg-base-bg px-2" value={label} onChange={(e) => setLabel(e.target.value)} />
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <label className="block min-w-[16rem] flex-1" htmlFor="question-bank-search">
+          <span className="mb-1 block">Search question bank</span>
+          <input
+            id="question-bank-search"
+            className="target-size w-full rounded border border-base-border bg-base-bg px-2"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
         </label>
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="block">
-            <span className="mb-1 block">Type</span>
-            <select className="target-size w-full rounded border border-base-border bg-base-bg px-2" value={type} onChange={(e) => setType(e.target.value as QuestionType)}>
-              {questionTypes.map((questionType) => (
-                <option key={questionType.value} value={questionType.value}>
-                  {questionType.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="target-size flex items-center gap-2">
-            <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} />
-            Required field
-          </label>
-        </div>
-        <label className="block">
-          <span className="mb-1 block">Help text (optional)</span>
-          <input className="target-size w-full rounded border border-base-border bg-base-bg px-2" value={helpText} onChange={(e) => setHelpText(e.target.value)} />
-        </label>
-        {isOptionType(type) && (
-          <label className="block">
-            <span className="mb-1 block">Options (one per line)</span>
-            <textarea className="w-full rounded border border-base-border bg-base-bg p-2" value={optionsText} onChange={(e) => setOptionsText(e.target.value)} />
-          </label>
-        )}
-        <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={() => { void addQuestionToBank(); }}>
+        <a href="#add-question-bank" className="target-size inline-flex items-center rounded border border-base-border px-4 py-2">
           Add New Question
-        </button>
-      </section>
-
-      <label className="block max-w-lg" htmlFor="question-bank-search">
-        <span className="mb-1 block">Search question bank</span>
-        <input
-          id="question-bank-search"
-          className="target-size w-full rounded border border-base-border bg-base-bg px-2"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </label>
+        </a>
+      </div>
 
       <div className="overflow-x-auto rounded border border-base-border bg-base-surface">
         <table className="min-w-full">
@@ -266,6 +251,42 @@ export function QuestionBankPage() {
           Build New Survey
         </button>
       </div>
+      <section id="add-question-bank" className="space-y-3 rounded border border-base-border bg-base-surface p-4">
+        <h2 className="text-xl">Add new question to bank</h2>
+        <label className="block">
+          <span className="mb-1 block">Question label</span>
+          <input className="target-size w-full rounded border border-base-border bg-base-bg px-2" value={label} onChange={(e) => setLabel(e.target.value)} />
+        </label>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="block">
+            <span className="mb-1 block">Type</span>
+            <select className="target-size w-full rounded border border-base-border bg-base-bg px-2" value={type} onChange={(e) => setType(e.target.value as QuestionType)}>
+              {questionTypes.map((questionType) => (
+                <option key={questionType.value} value={questionType.value}>
+                  {questionType.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="target-size flex items-center gap-2">
+            <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} />
+            Required field
+          </label>
+        </div>
+        <label className="block">
+          <span className="mb-1 block">Help text (optional)</span>
+          <input className="target-size w-full rounded border border-base-border bg-base-bg px-2" value={helpText} onChange={(e) => setHelpText(e.target.value)} />
+        </label>
+        {isOptionType(type) && (
+          <label className="block">
+            <span className="mb-1 block">Options (one per line)</span>
+            <textarea className="w-full rounded border border-base-border bg-base-bg p-2" value={optionsText} onChange={(e) => setOptionsText(e.target.value)} />
+          </label>
+        )}
+        <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={() => { void addQuestionToBank(); }}>
+          Add to Bank
+        </button>
+      </section>
       {editingQuestion && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="edit-question-title">
           <div className="w-full max-w-2xl space-y-3 rounded border border-base-border bg-base-surface p-4">
@@ -308,6 +329,42 @@ export function QuestionBankPage() {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {duplicateQuestion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="duplicate-title">
+          <div className="w-full max-w-xl space-y-3 rounded border border-base-border bg-base-surface p-4">
+            <h2 id="duplicate-title" className="text-xl">Possible duplicate question</h2>
+            <p>An existing question appears similar:</p>
+            <p>{duplicateQuestion.label}</p>
+            <p>Select Keep New to add your new question anyway, or Discard to keep the existing bank entry only.</p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="target-size rounded bg-base-action px-4 py-2 text-base-actionText" onClick={() => { void addQuestionToBank(true); }}>
+                Keep New
+              </button>
+              <button
+                type="button"
+                className="target-size rounded border border-base-border px-4 py-2"
+                onClick={() => {
+                  setDuplicateQuestion(null);
+                  setPendingAddQuestion(null);
+                  setStatus('Question add canceled');
+                }}
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showAddedDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="added-title">
+          <div className="w-full max-w-md space-y-3 rounded border border-base-border bg-base-surface p-4">
+            <h2 id="added-title" className="text-xl">Question added to bank</h2>
+            <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={() => setShowAddedDialog(false)}>
+              OK
+            </button>
           </div>
         </div>
       )}

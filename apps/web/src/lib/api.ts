@@ -48,7 +48,9 @@ export const api = {
   reportSummary: (token: string, surveyId: string) => apiFetch<{ summary: Record<string, unknown>; rows: Record<string, unknown>[] }>('reportSummary', token, { surveyId }),
   exportCsv: (token: string, surveyId: string) => apiFetch<{ csv: string }>('exportCsv', token, { surveyId }),
   listQuestionBank: (token: string) => apiFetch<{ questions: QuestionBankItem[] }>('listQuestionBank', token),
-  addQuestionToBank: (token: string, question: Question) => apiFetch<{ ok: true }>('addQuestionToBank', token, { question }),
+  checkQuestionBankDuplicate: (token: string, label: string, excludeQuestionId?: string) =>
+    apiFetch<{ duplicate?: QuestionBankItem }>('checkQuestionBankDuplicate', token, { label, excludeQuestionId }),
+  addQuestionToBank: (token: string, question: Question, allowDuplicate = false) => apiFetch<{ ok: true }>('addQuestionToBank', token, { question, allowDuplicate }),
   editQuestionBankQuestion: (token: string, questionId: string, question: Question) =>
     apiFetch<{ ok: true }>('editQuestionBankQuestion', token, { questionId, question }),
   archiveQuestionBankQuestion: (token: string, questionId: string) =>

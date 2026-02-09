@@ -142,6 +142,33 @@ export function SurveyBuilderPage() {
   const persistDraft = async (values: SurveyForm) => {
     if (!token) return null;
 
+    const preparedQuestions: Question[] = [];
+    for (const question of questions) {
+      if (!question.addToQuestionBank || !question.label?.trim()) {
+        preparedQuestions.push({ ...question, addToQuestionBankForce: false });
+        continue;
+      }
+
+      try {
+        const duplicateCheck = await api.checkQuestionBankDuplicate(token, question.label);
+        if (!duplicateCheck.duplicate) {
+          preparedQuestions.push({ ...question, addToQuestionBankForce: false });
+          continue;
+        }
+
+        const keepNew = window.confirm(
+          `Possible duplicate found in Question Bank.\nExisting: "${duplicateCheck.duplicate.label}"\nNew: "${question.label}"\n\nSelect OK to keep the new question, or Cancel to discard adding it to the bank.`
+        );
+        if (keepNew) {
+          preparedQuestions.push({ ...question, addToQuestionBankForce: true });
+        } else {
+          preparedQuestions.push({ ...question, addToQuestionBank: false, addToQuestionBankForce: false });
+        }
+      } catch {
+        preparedQuestions.push({ ...question, addToQuestionBankForce: false });
+      }
+    }
+
     const payload = {
       surveyId,
       title: values.title,
@@ -150,7 +177,7 @@ export function SurveyBuilderPage() {
       consentBlurb: values.consentBlurb,
       thankYouText: values.thankYouText,
       tags: values.tags?.split(',').map((x) => x.trim()).filter(Boolean),
-      questions,
+      questions: preparedQuestions,
       isTemplate: values.isTemplate
     };
 
