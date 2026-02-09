@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { z } from 'zod';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -81,12 +81,14 @@ function HelperLabel({ htmlFor, text, helper }: { htmlFor?: string; text: string
 export function SurveyBuilderPage() {
   const { surveyId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const clonedFromName = new URLSearchParams(location.search).get('clonedFrom') ?? '';
   const { token } = useAuth();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [status, setStatus] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [showRegexHelp, setShowRegexHelp] = useState(false);
-  const [reorderMode, setReorderMode] = useState(false);
+  const [showReorderDialog, setShowReorderDialog] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
   const [previewValues, setPreviewValues] = useState<Record<string, string | string[]>>({});
@@ -96,7 +98,6 @@ export function SurveyBuilderPage() {
     handleSubmit,
     reset,
     watch,
-    getValues,
     formState: { errors }
   } = useForm<SurveyForm>({
     resolver: zodResolver(surveySchema),
@@ -125,8 +126,8 @@ export function SurveyBuilderPage() {
         setQuestions(result.version.questions.length ? result.version.questions : [makeQuestion()]);
         setIsPublished(result.version.isPublished);
         reset({
-          title: result.version.title,
-          description: result.version.description,
+          title: clonedFromName ? '' : result.version.title,
+          description: clonedFromName ? '' : result.version.description,
           introText: result.version.introText,
           consentBlurb: result.version.consentBlurb,
           thankYouText: result.version.thankYouText,
@@ -144,7 +145,7 @@ export function SurveyBuilderPage() {
         setInviteLink(`${window.location.origin}/participant/${mostRecentInvite.token}`);
       })
       .catch(() => undefined);
-  }, [surveyId, token, reset]);
+  }, [surveyId, token, reset, clonedFromName]);
 
   const persistDraft = async (values: SurveyForm) => {
     if (!token) return null;
@@ -172,14 +173,14 @@ export function SurveyBuilderPage() {
   const previewDraft = handleSubmit(async (values) => {
     await persistDraft(values);
     setShowPreview(true);
-    setReorderMode(false);
+    setShowReorderDialog(false);
     setStatus('Draft preview updated');
   });
 
   const saveDraft = handleSubmit(async (values) => {
     await persistDraft(values);
     setIsPublished(false);
-    setStatus('Draft saved');
+    setStatus('Draft Saved');
   });
 
   const cloneSurvey = handleSubmit(async (values) => {
@@ -188,7 +189,9 @@ export function SurveyBuilderPage() {
     if (!persisted?.surveyId) return;
     const result = await api.duplicateSurvey(token, persisted.surveyId);
     setStatus('Survey cloned');
-    navigate(`/builder/${result.surveyId}`);
+    const sourceName = values.title.trim() || 'Untitled survey';
+    navigate(`/builder/${result.surveyId}?clonedFrom=${encodeURIComponent(sourceName)}`);
+    window.scrollTo({ top: 0, behavior: 'auto' });
   });
 
   const publishSurvey = handleSubmit(async (values) => {
@@ -204,21 +207,8 @@ export function SurveyBuilderPage() {
 
   const cancelReview = () => {
     setShowPreview(false);
-    setReorderMode(false);
+    setShowReorderDialog(false);
     setStatus('Draft review closed');
-  };
-
-  const saveAndViewAfterReorder = async () => {
-    const values = getValues();
-    const parsed = surveySchema.safeParse(values);
-    if (!parsed.success) {
-      setStatus('Enter title and description before saving question order');
-      return;
-    }
-    await persistDraft(parsed.data);
-    setReorderMode(false);
-    setShowPreview(true);
-    setStatus('Question order saved');
   };
 
   const moveQuestion = (index: number, nextIndex: number) => {
@@ -249,6 +239,7 @@ export function SurveyBuilderPage() {
   return (
     <section className="space-y-5">
       <h1 className="text-2xl">Survey Builder</h1>
+      {clonedFromName ? <p>{`Cloned from ${clonedFromName}`}</p> : null}
       <p aria-live="polite" className="text-sm">
         {status}
       </p>
@@ -518,35 +509,7 @@ export function SurveyBuilderPage() {
         <section className="space-y-3 rounded border border-base-border bg-base-surface p-4">
           <h2 className="text-xl">Review Draft Survey</h2>
           <p className="text-sm">Participant preview mode. This reflects conditional logic and field types.</p>
-          {reorderMode ? (
-            <div className="space-y-3 rounded border border-base-border bg-base-bg p-4">
-              <h3 className="text-lg">Reorder Survey Questions</h3>
-              {questions.map((question, index) => (
-                <div key={question.id} className="flex items-center justify-between gap-3 rounded border border-base-border p-3">
-                  <p>
-                    {index + 1}. {question.label}
-                  </p>
-                  <div className="flex gap-2">
-                    <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => moveQuestion(index, index - 1)}>
-                      Move up
-                    </button>
-                    <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => moveQuestion(index, index + 1)}>
-                      Move down
-                    </button>
-                  </div>
-                </div>
-              ))}
-              <div className="flex flex-wrap gap-2">
-                <button type="button" className="target-size rounded bg-base-action px-4 py-2 text-base-actionText" onClick={() => { void saveAndViewAfterReorder(); }}>
-                  Save and View
-                </button>
-                <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={() => setReorderMode(false)}>
-                  Cancel Reorder
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4 rounded border border-base-border bg-base-bg p-4">
+          <div className="space-y-4 rounded border border-base-border bg-base-bg p-4">
               <h3 className="text-lg">{currentTitle || 'Untitled survey'}</h3>
               {currentIntroText && <p>{currentIntroText}</p>}
               {currentConsentBlurb && <p className="rounded border border-base-border p-3">{currentConsentBlurb}</p>}
@@ -660,8 +623,7 @@ export function SurveyBuilderPage() {
                   </div>
                 );
               })}
-            </div>
-          )}
+          </div>
           <label className="target-size flex items-center gap-2" title="Save this survey as a reusable template for future projects.">
             <input type="checkbox" {...register('isTemplate')} />
             Save as template
@@ -673,14 +635,14 @@ export function SurveyBuilderPage() {
             <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={() => { void cloneSurvey(); }}>
               Clone
             </button>
+            <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={() => setShowReorderDialog(true)}>
+              Reorder Survey Questions
+            </button>
             <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={() => { void publishSurvey(); }}>
               Publish
             </button>
             <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={cancelReview}>
               Cancel
-            </button>
-            <button type="button" className="target-size rounded border border-base-border px-4 py-2" onClick={() => setReorderMode(true)}>
-              Reorder Survey Questions
             </button>
           </div>
           {isPublished && inviteLink ? (
@@ -690,6 +652,52 @@ export function SurveyBuilderPage() {
           ) : null}
         </section>
       )}
+      {showReorderDialog ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="reorder-title">
+          <div className="w-full max-w-2xl space-y-3 rounded border border-base-border bg-base-surface p-4">
+            <h2 id="reorder-title" className="text-xl">Reorder Survey Questions</h2>
+            {questions.map((question, index) => (
+              <div key={question.id} className="flex items-center justify-between gap-3 rounded border border-base-border p-3">
+                <p>
+                  {index + 1}. {question.label}
+                </p>
+                <div className="flex gap-2">
+                  <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => moveQuestion(index, index - 1)}>
+                    Move up
+                  </button>
+                  <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => moveQuestion(index, index + 1)}>
+                    Move down
+                  </button>
+                </div>
+              </div>
+            ))}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="target-size rounded bg-base-action px-4 py-2 text-base-actionText"
+                onClick={() => {
+                  setShowReorderDialog(false);
+                  setShowPreview(true);
+                  setStatus('Question order updated');
+                }}
+              >
+                Done
+              </button>
+              <button
+                type="button"
+                className="target-size rounded border border-base-border px-4 py-2"
+                onClick={() => {
+                  setShowReorderDialog(false);
+                  setShowPreview(false);
+                  window.scrollTo({ top: 0, behavior: 'auto' });
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
