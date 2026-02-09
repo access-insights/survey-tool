@@ -1,4 +1,4 @@
-import type { AuditEntry, Invite, Survey, SurveyVersion, UserProfile } from '../types';
+import type { AuditEntry, Invite, Question, QuestionBankItem, Survey, SurveyVersion, UserProfile } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/.netlify/functions';
 
@@ -46,5 +46,9 @@ export const api = {
   participantSubmit: (inviteToken: string, answers: Record<string, string | string[]>) =>
     apiFetch<{ submissionId: string; confirmationCode: string }>('participantSubmit', undefined, { inviteToken, answers }),
   reportSummary: (token: string, surveyId: string) => apiFetch<{ summary: Record<string, unknown>; rows: Record<string, unknown>[] }>('reportSummary', token, { surveyId }),
-  exportCsv: (token: string, surveyId: string) => apiFetch<{ csv: string }>('exportCsv', token, { surveyId })
+  exportCsv: (token: string, surveyId: string) => apiFetch<{ csv: string }>('exportCsv', token, { surveyId }),
+  listQuestionBank: (token: string) => apiFetch<{ questions: QuestionBankItem[] }>('listQuestionBank', token),
+  addQuestionToBank: (token: string, question: Question) => apiFetch<{ ok: true }>('addQuestionToBank', token, { question }),
+  buildSurveyFromQuestionBank: (token: string, questionIds: string[]) =>
+    apiFetch<{ surveyId: string }>('buildSurveyFromQuestionBank', token, { questionIds })
 };

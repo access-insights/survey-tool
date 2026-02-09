@@ -53,14 +53,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <NavLink className="target-size rounded px-3 py-2" to="/reports">
                   Reports
                 </NavLink>
-                {profile.role === 'admin' && (
-                  <NavLink className="target-size rounded px-3 py-2" to="/admin">
-                    Admin
+                {(profile.role === 'admin' || profile.role === 'creator') && (
+                  <NavLink className="target-size rounded px-3 py-2" to="/question-bank">
+                    Question Bank
                   </NavLink>
                 )}
                 <NavLink className="target-size rounded px-3 py-2" to="/guide">
                   Guide
                 </NavLink>
+                {profile.role === 'admin' && (
+                  <NavLink className="target-size rounded px-3 py-2" to="/admin">
+                    Admin
+                  </NavLink>
+                )}
               </nav>
             </>
           ) : null}
@@ -96,14 +101,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <NavLink className="target-size rounded px-3 py-2" to="/reports">
                 Reports
               </NavLink>
-              {profile.role === 'admin' && (
-                <NavLink className="target-size rounded px-3 py-2" to="/admin">
-                  Admin
+              {(profile.role === 'admin' || profile.role === 'creator') && (
+                <NavLink className="target-size rounded px-3 py-2" to="/question-bank">
+                  Question Bank
                 </NavLink>
               )}
               <NavLink className="target-size rounded px-3 py-2" to="/guide">
                 Guide
               </NavLink>
+              {profile.role === 'admin' && (
+                <NavLink className="target-size rounded px-3 py-2" to="/admin">
+                  Admin
+                </NavLink>
+              )}
               <p className="px-3 py-1 text-sm">{profile.fullName || profile.email}</p>
               <button
                 className="target-size rounded border border-base-border px-3 py-2 text-left"

@@ -35,6 +35,7 @@ export interface Question {
   pii?: boolean;
   randomizeOptions?: boolean;
   logic?: LogicRule;
+  addToQuestionBank?: boolean;
 }
 
 export interface SurveyVersion {
@@ -92,5 +93,22 @@ export interface Invite {
   email?: string;
   expiresAt?: string;
   status: 'sent' | 'started' | 'completed' | 'expired';
+  createdAt: string;
+}
+
+export interface QuestionBankItem {
+  id: string;
+  label: string;
+  type: QuestionType;
+  required: boolean;
+  helpText?: string;
+  options?: string[];
+  min?: number;
+  max?: number;
+  regex?: string;
+  maxLength?: number;
+  pii?: boolean;
+  logic?: LogicRule;
+  createdByName: string;
   createdAt: string;
 }

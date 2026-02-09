@@ -8,6 +8,7 @@ import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { MySurveysPage } from './pages/MySurveysPage';
 import { ParticipantPage } from './pages/ParticipantPage';
+import { QuestionBankPage } from './pages/QuestionBankPage';
 import { ReportPage } from './pages/ReportPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { SurveyBuilderPage } from './pages/SurveyBuilderPage';
@@ -42,6 +43,14 @@ export default function App() {
           element={
             <ProtectedRoute allow={['admin', 'creator']}>
               <MySurveysPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/question-bank"
+          element={
+            <ProtectedRoute allow={['admin', 'creator']}>
+              <QuestionBankPage />
             </ProtectedRoute>
           }
         />

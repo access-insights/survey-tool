@@ -462,6 +462,15 @@ export function SurveyBuilderPage() {
                 </div>
               </fieldset>
 
+              <label className="target-size flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={question.addToQuestionBank ?? false}
+                  onChange={(e) => updateQuestion(question.id, (current) => ({ ...current, addToQuestionBank: e.target.checked }))}
+                />
+                Add to Question Bank
+              </label>
+
               <div className="flex flex-wrap gap-2">
                 <button type="button" className="target-size rounded border border-base-border px-3 py-2" onClick={() => removeQuestion(question.id)}>
                   Discard Question

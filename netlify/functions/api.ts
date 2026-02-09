@@ -268,6 +268,7 @@ const upsertSurveySchema = z.object({
       maxLength: z.number().optional(),
       pii: z.boolean().optional(),
       randomizeOptions: z.boolean().optional(),
+      addToQuestionBank: z.boolean().optional(),
       logic: z
         .object({
           questionId: z.string(),
@@ -277,6 +278,25 @@ const upsertSurveySchema = z.object({
     })
   ),
   isTemplate: z.boolean().optional()
+});
+
+const questionBankQuestionSchema = z.object({
+  label: z.string().max(1000),
+  type: z.string(),
+  required: z.boolean(),
+  helpText: z.string().optional(),
+  options: z.array(z.string()).optional(),
+  min: z.number().optional(),
+  max: z.number().optional(),
+  regex: z.string().optional(),
+  maxLength: z.number().optional(),
+  pii: z.boolean().optional(),
+  logic: z
+    .object({
+      questionId: z.string(),
+      equals: z.string()
+    })
+    .optional()
 });
 
 const inviteSchema = z.object({
@@ -292,6 +312,10 @@ const participantSchema = z.object({
 
 const participantLoadSchema = z.object({
   inviteToken: z.string().min(20)
+});
+
+const buildSurveyFromBankSchema = z.object({
+  questionIds: z.array(z.string().uuid()).min(1).max(100)
 });
 
 function csvEscape(value: unknown) {
@@ -569,8 +593,153 @@ export const handler: Handler = async (event) => {
 
       if (versionError || !version) throw new Error('Failed to save version');
 
+      const bankQuestions = input.questions.filter((question) => question.addToQuestionBank);
+      if (bankQuestions.length > 0) {
+        const rows = bankQuestions.map((question) => ({
+          org_id: ctx.orgId,
+          created_by: ctx.userId,
+          label: question.label,
+          type: question.type,
+          required: question.required,
+          help_text: question.helpText,
+          options_json: question.options ?? null,
+          min_value: question.min,
+          max_value: question.max,
+          regex: question.regex,
+          max_length: question.maxLength,
+          pii: question.pii ?? false,
+          logic_json: question.logic ?? null
+        }));
+        await supabase.from('question_bank').insert(rows);
+      }
+
       await recordAudit(ctx, 'upsert_survey', 'survey', surveyId, { version: nextVersion });
       return json(200, { surveyId, versionId: version.id });
+    }
+
+    if (action === 'listQuestionBank') {
+      roleGuard(ctx, ['admin', 'creator']);
+      const { data, error } = await supabase
+        .from('question_bank')
+        .select('id,label,type,required,help_text,options_json,min_value,max_value,regex,max_length,pii,logic_json,created_by,created_at')
+        .eq('org_id', ctx.orgId)
+        .order('created_at', { ascending: false })
+        .limit(1000);
+      if (error) throw new Error(error.message);
+
+      const creatorIds = Array.from(new Set((data ?? []).map((row) => row.created_by).filter(Boolean)));
+      const { data: creators } = creatorIds.length
+        ? await supabase.from('users').select('id,full_name,email').in('id', creatorIds)
+        : { data: [] as { id: string; full_name: string; email: string }[] };
+      const creatorMap = new Map<string, string>();
+      for (const creator of creators ?? []) {
+        creatorMap.set(creator.id, creator.full_name || creator.email || 'Unknown');
+      }
+
+      return json(200, {
+        questions: (data ?? []).map((row) => ({
+          id: row.id,
+          label: row.label,
+          type: row.type,
+          required: row.required,
+          helpText: row.help_text,
+          options: row.options_json ?? undefined,
+          min: row.min_value ?? undefined,
+          max: row.max_value ?? undefined,
+          regex: row.regex ?? undefined,
+          maxLength: row.max_length ?? undefined,
+          pii: row.pii ?? false,
+          logic: row.logic_json ?? undefined,
+          createdByName: creatorMap.get(row.created_by) ?? 'Unknown',
+          createdAt: row.created_at
+        }))
+      });
+    }
+
+    if (action === 'addQuestionToBank') {
+      roleGuard(ctx, ['admin', 'creator']);
+      const input = z.object({ question: questionBankQuestionSchema }).parse(body);
+      const question = input.question;
+      await supabase.from('question_bank').insert({
+        org_id: ctx.orgId,
+        created_by: ctx.userId,
+        label: question.label,
+        type: question.type,
+        required: question.required,
+        help_text: question.helpText,
+        options_json: question.options ?? null,
+        min_value: question.min,
+        max_value: question.max,
+        regex: question.regex,
+        max_length: question.maxLength,
+        pii: question.pii ?? false,
+        logic_json: question.logic ?? null
+      });
+      await recordAudit(ctx, 'add_question_bank_question', 'question_bank', 'bulk_add');
+      return json(200, { ok: true });
+    }
+
+    if (action === 'buildSurveyFromQuestionBank') {
+      roleGuard(ctx, ['admin', 'creator']);
+      const input = buildSurveyFromBankSchema.parse(body);
+      const { data: bankRows, error: bankError } = await supabase
+        .from('question_bank')
+        .select('id,label,type,required,help_text,options_json,min_value,max_value,regex,max_length,pii,logic_json')
+        .eq('org_id', ctx.orgId)
+        .in('id', input.questionIds);
+      if (bankError) throw new Error(bankError.message);
+      if (!bankRows || bankRows.length === 0) throw new Error('No question bank items found');
+
+      const orderedRows = input.questionIds.map((id) => bankRows.find((row) => row.id === id)).filter(Boolean);
+      const now = new Date().toISOString();
+      const { data: createdSurvey, error: createError } = await supabase
+        .from('surveys')
+        .insert({
+          org_id: ctx.orgId,
+          owner_user_id: ctx.userId,
+          title: 'New survey',
+          description: 'Created from question bank',
+          status: 'draft',
+          is_template: false,
+          created_at: now,
+          updated_at: now
+        })
+        .select('id')
+        .single();
+      if (createError || !createdSurvey) throw new Error('Failed to create survey from question bank');
+
+      const questions = orderedRows.map((row) => ({
+        id: crypto.randomUUID(),
+        label: row?.label,
+        type: row?.type,
+        required: row?.required,
+        helpText: row?.help_text ?? undefined,
+        options: row?.options_json ?? undefined,
+        min: row?.min_value ?? undefined,
+        max: row?.max_value ?? undefined,
+        regex: row?.regex ?? undefined,
+        maxLength: row?.max_length ?? undefined,
+        pii: row?.pii ?? false,
+        logic: row?.logic_json ?? undefined
+      }));
+
+      const { error: versionError } = await supabase.from('survey_versions').insert({
+        survey_id: createdSurvey.id,
+        version: 1,
+        is_published: false,
+        title: '',
+        description: '',
+        intro_text: '',
+        consent_blurb: '',
+        thank_you_text: '',
+        tags: [],
+        questions_json: questions,
+        created_by: ctx.userId
+      });
+      if (versionError) throw new Error('Failed to create survey version from question bank');
+
+      await recordAudit(ctx, 'build_survey_from_question_bank', 'survey', createdSurvey.id, { questionCount: questions.length });
+      return json(200, { surveyId: createdSurvey.id });
     }
 
     if (action === 'publishSurvey') {
