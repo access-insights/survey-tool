@@ -118,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         setLoading(true);
         try {
-          const result = await msalApp.loginPopup(loginRequest);
+          const result = await msalApp.loginPopup({ ...loginRequest, redirectUri });
           if (result.account) msalApp.setActiveAccount(result.account);
           const nextToken = extractToken(result);
           setToken(nextToken);
