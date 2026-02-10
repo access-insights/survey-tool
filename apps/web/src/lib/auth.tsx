@@ -16,7 +16,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const tenantId = import.meta.env.VITE_AZURE_TENANT_ID;
 const clientId = import.meta.env.VITE_AZURE_CLIENT_ID;
-const redirectUri = import.meta.env.VITE_AZURE_REDIRECT_URI || window.location.origin;
+const defaultPopupRedirectUri = `${window.location.origin}/auth/popup-callback.html`;
+const redirectUri = import.meta.env.VITE_AZURE_REDIRECT_URI || defaultPopupRedirectUri;
 const postLogoutRedirectUri = import.meta.env.VITE_AZURE_POST_LOGOUT_REDIRECT_URI || window.location.origin;
 
 const isAzureConfigured = Boolean(tenantId && clientId);
@@ -37,6 +38,18 @@ const msalApp = isAzureConfigured
 const loginRequest = {
   scopes: ['openid', 'profile', 'email']
 };
+
+function shouldFallbackToRedirect(error: unknown): boolean {
+  const errorCode = typeof error === 'object' && error && 'errorCode' in error ? String(error.errorCode).toLowerCase() : '';
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+  const detail = `${errorCode} ${message}`;
+  return (
+    detail.includes('popup_window_error') ||
+    detail.includes('popup_window_open_error') ||
+    detail.includes('empty_window_error') ||
+    detail.includes('monitor_window_timeout')
+  );
+}
 
 function extractToken(result: AuthenticationResult | null): string | null {
   return result?.idToken ?? null;
@@ -110,8 +123,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const nextToken = extractToken(result);
           setToken(nextToken);
           await loadProfile(nextToken);
-        } catch {
-          await msalApp.loginRedirect(loginRequest);
+        } catch (error) {
+          if (shouldFallbackToRedirect(error)) {
+            await msalApp.loginRedirect(loginRequest);
+            return;
+          }
+          setLoading(false);
+          throw error;
         }
       },
       logout: async () => {

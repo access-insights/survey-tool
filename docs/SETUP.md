@@ -39,6 +39,9 @@ VITE_SUPABASE_ANON_KEY=
 1. In Azure portal, open App registrations and create an app for this project.
 2. Platform type: Single-page application.
 3. Add redirect URIs for local and Netlify domains.
+   - Include popup callback URIs, for example:
+     - `http://localhost:8888/auth/popup-callback.html`
+     - `https://<your-netlify-site>.netlify.app/auth/popup-callback.html`
 4. Use scopes: openid profile email.
 5. Set tenant restriction to your organization.
 6. Set environment values for issuer, audience, and JWKS URI.

@@ -9,6 +9,7 @@
 - `VITE_AZURE_CLIENT_ID`
 - `VITE_AZURE_TENANT_ID`
 - `VITE_AZURE_REDIRECT_URI`
+  - Recommended: `https://<your-site>/auth/popup-callback.html`
 - `VITE_AZURE_POST_LOGOUT_REDIRECT_URI`
 - `AZURE_ALLOWED_AUDIENCE`
 - `AZURE_ISSUER`
