@@ -17,7 +17,18 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const tenantId = import.meta.env.VITE_AZURE_TENANT_ID;
 const clientId = import.meta.env.VITE_AZURE_CLIENT_ID;
 const defaultPopupRedirectUri = `${window.location.origin}/auth/popup-callback.html`;
-const redirectUri = import.meta.env.VITE_AZURE_REDIRECT_URI || defaultPopupRedirectUri;
+const configuredRedirectUri = import.meta.env.VITE_AZURE_REDIRECT_URI;
+const redirectUri = (() => {
+  if (!configuredRedirectUri) return defaultPopupRedirectUri;
+  try {
+    const parsed = new URL(configuredRedirectUri, window.location.origin);
+    const isSameOrigin = parsed.origin === window.location.origin;
+    const isPopupCallbackPath = parsed.pathname === '/auth/popup-callback.html';
+    return isSameOrigin && isPopupCallbackPath ? parsed.toString() : defaultPopupRedirectUri;
+  } catch {
+    return defaultPopupRedirectUri;
+  }
+})();
 const postLogoutRedirectUri = import.meta.env.VITE_AZURE_POST_LOGOUT_REDIRECT_URI || window.location.origin;
 
 const isAzureConfigured = Boolean(tenantId && clientId);
