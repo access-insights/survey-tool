@@ -738,7 +738,10 @@ export function SurveyBuilderPage() {
             {actionDialogLink ? (
               <div className="space-y-2">
                 <p>
-                  Published link: <a href={actionDialogLink}>{actionDialogLink}</a>
+                  Published link:{' '}
+                  <a href={actionDialogLink} className="mt-1 block break-all">
+                    {actionDialogLink}
+                  </a>
                 </p>
                 <button
                   type="button"
