@@ -300,6 +300,11 @@ export function SurveyBuilderPage() {
     setSendingInviteId(invite.id);
     try {
       await api.sendInviteEmail(token, invite.id);
+      await loadInvites();
+      const link = `${window.location.origin}/participant/${invite.token}`;
+      setActionDialogTitle(invite.emailSentAt ? 'Invite Resent' : 'Invite Sent');
+      setActionDialogLink(link);
+      setShowActionDialog(true);
       setInviteStatus(`Invite email sent to ${invite.email}.`);
     } catch (error) {
       setInviteStatus(error instanceof Error ? error.message : 'Failed to send invite email.');
@@ -654,6 +659,7 @@ export function SurveyBuilderPage() {
                 <tr>
                   <th className="p-2 text-left">Email</th>
                   <th className="p-2 text-left">Status</th>
+                  <th className="p-2 text-left">Last Sent</th>
                   <th className="p-2 text-left">Expires</th>
                   <th className="p-2 text-left">Created</th>
                   <th className="p-2 text-left">Link</th>
@@ -667,6 +673,7 @@ export function SurveyBuilderPage() {
                     <tr key={invite.id} className="border-t border-base-border">
                       <td className="p-2">{invite.email || 'No email'}</td>
                       <td className="p-2">{invite.status}</td>
+                      <td className="p-2">{invite.emailSentAt ? new Date(invite.emailSentAt).toLocaleString() : 'Not sent'}</td>
                       <td className="p-2">{invite.expiresAt ? new Date(invite.expiresAt).toLocaleString() : 'None'}</td>
                       <td className="p-2">{new Date(invite.createdAt).toLocaleString()}</td>
                       <td className="p-2">
@@ -695,7 +702,7 @@ export function SurveyBuilderPage() {
                             void sendSingleInviteEmail(invite);
                           }}
                         >
-                          {sendingInviteId === invite.id ? 'Sending...' : 'Send Invite'}
+                          {sendingInviteId === invite.id ? 'Sending...' : invite.emailSentAt ? 'Resend' : 'Send Invite'}
                         </button>
                       </td>
                     </tr>
@@ -703,7 +710,7 @@ export function SurveyBuilderPage() {
                 })}
                 {invites.length === 0 ? (
                   <tr>
-                    <td className="p-2" colSpan={6}>
+                    <td className="p-2" colSpan={7}>
                       No invites yet.
                     </td>
                   </tr>
@@ -932,7 +939,7 @@ export function SurveyBuilderPage() {
             {actionDialogLink ? (
               <div className="space-y-2">
                 <p>
-                  Published link:{' '}
+                  Link:{' '}
                   <a href={actionDialogLink} className="mt-1 block break-all">
                     {actionDialogLink}
                   </a>
@@ -942,7 +949,7 @@ export function SurveyBuilderPage() {
                   className="target-size rounded border border-base-border px-3 py-2"
                   onClick={() => {
                     void navigator.clipboard.writeText(actionDialogLink);
-                    setStatus('Published link copied');
+                    setStatus('Link copied');
                   }}
                 >
                   Copy

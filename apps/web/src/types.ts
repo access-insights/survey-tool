@@ -93,6 +93,7 @@ export interface Invite {
   token: string;
   email?: string;
   expiresAt?: string;
+  emailSentAt?: string;
   status: 'sent' | 'started' | 'completed' | 'expired';
   createdAt: string;
 }

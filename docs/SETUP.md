@@ -62,6 +62,7 @@ The backend can bootstrap initial admins through `ADMIN_BOOTSTRAP_EMAILS`.
 6. Run `db/005_question_bank_archive.sql`.
 7. Run `db/006_question_bank_randomize_options.sql`.
 8. Run `db/007_security_hardening.sql`.
+9. Run `db/008_invite_email_tracking.sql`.
 
 ## Run Locally
 Use Netlify CLI so functions and SPA run together:

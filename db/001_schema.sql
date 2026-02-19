@@ -82,6 +82,7 @@ create table if not exists invites (
   token text not null unique,
   email text,
   expires_at timestamptz,
+  email_sent_at timestamptz,
   status text not null check (status in ('sent','started','completed','expired')) default 'sent',
   created_at timestamptz not null default now()
 );

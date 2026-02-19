@@ -484,7 +484,15 @@ async function sendSurveyInviteEmail(input: {
   });
 
   if (!response.ok) {
-    throw new Error('Failed to send invite email');
+    const responseBody = await response.text().catch(() => '');
+    let detail = '';
+    try {
+      const parsed = JSON.parse(responseBody) as { message?: string; error?: { message?: string } };
+      detail = parsed.error?.message || parsed.message || '';
+    } catch {
+      detail = responseBody;
+    }
+    throw new Error(`Failed to send invite email${detail ? `: ${detail}` : ''}`);
   }
 }
 
@@ -1138,6 +1146,7 @@ export const handler: Handler = async (event) => {
           token: row.token,
           email: row.email,
           expiresAt: row.expires_at,
+          emailSentAt: row.email_sent_at,
           status: row.status,
           createdAt: row.created_at
         }))
@@ -1174,6 +1183,7 @@ export const handler: Handler = async (event) => {
           token: data.token,
           email: data.email,
           expiresAt: data.expires_at,
+          emailSentAt: data.email_sent_at,
           status: data.status,
           createdAt: data.created_at
         },
@@ -1186,7 +1196,7 @@ export const handler: Handler = async (event) => {
       const input = inviteIdSchema.parse(body);
       const { data: invite, error } = await supabase
         .from('invites')
-        .select('id,survey_id,token,email,expires_at')
+        .select('id,survey_id,token,email,expires_at,email_sent_at')
         .eq('id', input.inviteId)
         .single();
       if (error || !invite) throw new Error('Invite not found');
@@ -1202,8 +1212,10 @@ export const handler: Handler = async (event) => {
         inviteUrl,
         expiresAt: invite.expires_at
       });
+      const sentAt = new Date().toISOString();
+      await supabase.from('invites').update({ email_sent_at: sentAt }).eq('id', invite.id);
       await recordAudit(ctx, 'send_invite_email', 'invite', invite.id, { surveyId: invite.survey_id, email: invite.email });
-      return json(200, { ok: true });
+      return json(200, { ok: true, emailSentAt: sentAt });
     }
 
     if (action === 'deleteSurvey') {
