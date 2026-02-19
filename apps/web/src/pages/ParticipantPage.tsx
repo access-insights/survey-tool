@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
 import { ErrorSummary } from '../components/ErrorSummary';
@@ -15,22 +15,15 @@ export function ParticipantPage() {
   const [saved, setSaved] = useState('');
   const [submissionId, setSubmissionId] = useState('');
   const [confirmationCode, setConfirmationCode] = useState('');
-
-  useEffect(() => {
-    api
-      .participantLoad(inviteToken)
-      .then((result) => {
-        setVersion(result.version);
-        setStatus('');
-      })
-      .catch((error: Error) => setStatus(error.message));
-  }, [inviteToken]);
+  const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
+  const lastSavedSignature = useRef('');
 
   const schema = useMemo(() => buildSurveySchema(version?.questions ?? []), [version]);
 
   const {
     register,
     handleSubmit,
+    reset,
     setValue,
     watch,
     formState: { errors, isSubmitting }
@@ -39,15 +32,37 @@ export function ParticipantPage() {
     defaultValues: {}
   });
 
+  useEffect(() => {
+    api
+      .participantLoad(inviteToken)
+      .then((result) => {
+        setVersion(result.version);
+        reset(result.draftAnswers ?? {});
+        setHasLoadedDraft(true);
+        setStatus('');
+      })
+      .catch((error: Error) => setStatus(error.message));
+  }, [inviteToken, reset]);
+
   const values = watch();
+  const valuesSignature = useMemo(() => JSON.stringify(values), [values]);
 
   useEffect(() => {
-    if (!version) return;
+    if (!version || !hasLoadedDraft || submissionId) return;
+    if (valuesSignature === lastSavedSignature.current) return;
+
     const timer = setTimeout(() => {
-      api.participantSaveDraft(inviteToken, values).then(() => setSaved('Draft saved')).catch(() => setSaved(''));
+      api
+        .participantSaveDraft(inviteToken, values)
+        .then(() => {
+          lastSavedSignature.current = valuesSignature;
+          setSaved('Draft saved');
+        })
+        .catch(() => setSaved(''));
     }, 1000);
+
     return () => clearTimeout(timer);
-  }, [values, inviteToken, version]);
+  }, [values, valuesSignature, inviteToken, version, hasLoadedDraft, submissionId]);
 
   if (status) return <p role="status">{status}</p>;
   if (!version) return null;

@@ -2,6 +2,7 @@ import type { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import { z } from 'zod';
+import { buildFromQuestionBankDefaults, isInviteExpired, resolveStartedAt } from './participantUtils';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -448,8 +449,13 @@ export const handler: Handler = async (event) => {
       const input = participantSchema.parse(body);
       rateLimit(`draft:${input.inviteToken}`, 30, 60_000);
 
-      const { data: invite, error } = await supabase.from('invites').select('id,status').eq('token', input.inviteToken).single();
+      const { data: invite, error } = await supabase
+        .from('invites')
+        .select('id,status,expires_at')
+        .eq('token', input.inviteToken)
+        .single();
       if (error || !invite) throw new Error('Invite not found');
+      if (isInviteExpired(invite.expires_at)) throw new Error('Invite expired');
       if (invite.status === 'completed') throw new Error('Survey already submitted');
 
       const { data: existing } = await supabase.from('responses').select('id').eq('invite_id', invite.id).maybeSingle();
@@ -469,15 +475,18 @@ export const handler: Handler = async (event) => {
 
       const { data: invite, error } = await supabase
         .from('invites')
-        .select('id,survey_id,status')
+        .select('id,survey_id,status,expires_at')
         .eq('token', input.inviteToken)
         .single();
 
       if (error || !invite) throw new Error('Invite not found');
+      if (isInviteExpired(invite.expires_at)) throw new Error('Invite expired');
       if (invite.status === 'completed') throw new Error('Survey already submitted');
 
-      const startedAt = new Date().toISOString();
-      const completedAt = new Date().toISOString();
+      const { data: existingResponse } = await supabase.from('responses').select('started_at').eq('invite_id', invite.id).maybeSingle();
+      const nowIso = new Date().toISOString();
+      const startedAt = resolveStartedAt(existingResponse?.started_at, nowIso);
+      const completedAt = nowIso;
 
       const { data: response, error: responseError } = await supabase
         .from('responses')
@@ -823,6 +832,7 @@ export const handler: Handler = async (event) => {
     if (action === 'buildSurveyFromQuestionBank') {
       roleGuard(ctx, ['admin', 'creator']);
       const input = buildSurveyFromBankSchema.parse(body);
+      const defaults = buildFromQuestionBankDefaults();
       const { data: bankRows, error: bankError } = await supabase
         .from('question_bank')
         .select('id,label,type,required,help_text,options_json,min_value,max_value,regex,max_length,pii,randomize_options,logic_json')
@@ -838,8 +848,8 @@ export const handler: Handler = async (event) => {
         .insert({
           org_id: ctx.orgId,
           owner_user_id: ctx.userId,
-          title: 'New survey',
-          description: 'Created from question bank',
+          title: defaults.title,
+          description: defaults.description,
           status: 'draft',
           is_template: false,
           created_at: now,
@@ -869,8 +879,8 @@ export const handler: Handler = async (event) => {
         survey_id: createdSurvey.id,
         version: 1,
         is_published: false,
-        title: '',
-        description: '',
+        title: defaults.title,
+        description: defaults.description,
         intro_text: '',
         consent_blurb: '',
         thank_you_text: '',

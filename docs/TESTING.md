@@ -2,6 +2,8 @@
 
 ## Unit tests
 - `src/tests/surveyValidation.test.ts` covers schema and conditional logic behavior.
+- `src/tests/participantAutosave.test.tsx` covers participant autosave behavior and draft restoration.
+- `netlify/functions/participantUtils.test.ts` covers invite expiry and response timestamp utility logic.
 
 ## Accessibility tests
 - `src/tests/a11y.test.tsx` verifies key accessibility content and semantics.

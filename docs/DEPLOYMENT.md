@@ -24,4 +24,4 @@
 - Functions directory: `netlify/functions`
 
 ## GitHub CI
-Use the workflow in `.github/workflows/ci.yml` to run lint, unit, and accessibility checks before merges.
+Use the workflow in `.github/workflows/ci.yml` to run lint, unit, accessibility, and Playwright e2e checks before merges.

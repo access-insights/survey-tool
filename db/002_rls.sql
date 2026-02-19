@@ -10,7 +10,12 @@ alter table responses enable row level security;
 alter table response_answers enable row level security;
 alter table audit_log enable row level security;
 
-create or replace function public.current_role() returns text language sql stable as $$
+create or replace function public.current_role()
+returns text
+language sql
+stable
+set search_path = public
+as $$
   select role from users where id = auth.uid()
 $$;
 

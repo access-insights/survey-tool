@@ -24,7 +24,8 @@
 - Identity is issued by Azure AD in-app authentication.
 - Function layer verifies JWT and maps `sub` to `users.id`.
 - Roles: `admin`, `creator` (displayed as survey author), `participant`.
-- Authorization is enforced in functions and again in Supabase RLS.
+- Authorization is enforced in functions for API calls.
+- Supabase RLS is also enabled as a database-level control for direct PostgREST/client access.
 
 ## Core Domain Model
 - Surveys use immutable published versions:
@@ -42,7 +43,7 @@
   - Zod input validation.
   - Role and ownership checks.
   - Database calls via Supabase service role key.
-- Rate limit for participant submission endpoints using token and IP buckets.
+- Rate limit for participant endpoints using invite token buckets (in-memory per function instance).
 
 ## Accessibility Strategy
 - Semantic HTML with explicit labels and grouped controls.
