@@ -15,7 +15,7 @@
     "install:all": "npm install --workspaces",
     "prepare": "husky || true",
     "test:web": "npm run test --workspace web",
-    "test:functions": "vitest run netlify/functions/participantUtils.test.ts --environment node"
+    "test:functions": "vitest run tests/functions/participantUtils.test.ts --environment node"
   },
   "devDependencies": {
     "netlify-cli": "^17.38.1"

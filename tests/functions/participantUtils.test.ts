@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildFromQuestionBankDefaults, isInviteExpired, resolveStartedAt } from './participantUtils';
+import { buildFromQuestionBankDefaults, isInviteExpired, resolveStartedAt } from '../../netlify/functions/participantUtils';
 
 describe('participantUtils', () => {
   it('detects expired invites by timestamp', () => {
