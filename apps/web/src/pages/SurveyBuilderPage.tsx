@@ -1,12 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { z } from 'zod';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { shouldShowQuestion } from '../lib/surveyValidation';
-import type { Question, QuestionType } from '../types';
+import type { Invite, Question, QuestionType } from '../types';
 
 const surveySchema = z.object({
   title: z.string().min(3),
@@ -78,6 +78,18 @@ function HelperLabel({ htmlFor, text, helper }: { htmlFor?: string; text: string
   );
 }
 
+function parseEmailList(value: string) {
+  const tokens = value
+    .split(/[\n,;]+/)
+    .map((token) => token.trim().toLowerCase())
+    .filter(Boolean);
+  const deduped = Array.from(new Set(tokens));
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const valid = deduped.filter((email) => emailRegex.test(email));
+  const invalid = deduped.filter((email) => !emailRegex.test(email));
+  return { valid, invalid };
+}
+
 export function SurveyBuilderPage() {
   const { surveyId } = useParams();
   const navigate = useNavigate();
@@ -94,6 +106,11 @@ export function SurveyBuilderPage() {
   const [actionDialogTitle, setActionDialogTitle] = useState('');
   const [actionDialogLink, setActionDialogLink] = useState('');
   const [previewValues, setPreviewValues] = useState<Record<string, string | string[]>>({});
+  const [inviteEmailsText, setInviteEmailsText] = useState('');
+  const [inviteExpiresAtLocal, setInviteExpiresAtLocal] = useState('');
+  const [inviteStatus, setInviteStatus] = useState('');
+  const [isSendingInvites, setIsSendingInvites] = useState(false);
+  const [invites, setInvites] = useState<Invite[]>([]);
 
   const {
     register,
@@ -138,6 +155,16 @@ export function SurveyBuilderPage() {
       })
       .catch((error: Error) => setStatus(error.message));
   }, [surveyId, token, reset, clonedFromName]);
+
+  const loadInvites = useCallback(async () => {
+    if (!token || !surveyId) return;
+    const result = await api.listInvites(token, surveyId);
+    setInvites(result.invites);
+  }, [token, surveyId]);
+
+  useEffect(() => {
+    void loadInvites();
+  }, [loadInvites]);
 
   const persistDraft = async (values: SurveyForm) => {
     if (!token) return null;
@@ -221,11 +248,47 @@ export function SurveyBuilderPage() {
     if (!persisted?.surveyId) return;
     await api.publishSurvey(token, persisted.surveyId);
     const inviteResult = await api.createInvite(token, persisted.surveyId);
+    if (!surveyId) {
+      await navigate(`/builder/${persisted.surveyId}`, { replace: true });
+    }
+    await loadInvites();
     setStatus('Survey published');
     setActionDialogTitle('Survey Published');
     setActionDialogLink(inviteResult.link);
     setShowActionDialog(true);
   });
+
+  const createBulkInvites = async () => {
+    if (!token || !surveyId) return;
+    const { valid, invalid } = parseEmailList(inviteEmailsText);
+    if (!valid.length) {
+      setInviteStatus('Enter at least one valid email address.');
+      return;
+    }
+    setIsSendingInvites(true);
+    setInviteStatus('');
+    try {
+      const expiresAt = inviteExpiresAtLocal ? new Date(inviteExpiresAtLocal).toISOString() : undefined;
+
+      let created = 0;
+      for (const email of valid) {
+        try {
+          await api.createInvite(token, surveyId, expiresAt, email);
+          created += 1;
+        } catch {
+          // Continue through list and report aggregate status.
+        }
+      }
+
+      await loadInvites();
+      const invalidPart = invalid.length ? ` ${invalid.length} invalid email(s) skipped.` : '';
+      const failed = valid.length - created;
+      const failedPart = failed > 0 ? ` ${failed} failed.` : '';
+      setInviteStatus(`Created ${created} invite(s).${failedPart}${invalidPart}`);
+    } finally {
+      setIsSendingInvites(false);
+    }
+  };
 
   const cancelReview = () => {
     setShowPreview(false);
@@ -519,6 +582,106 @@ export function SurveyBuilderPage() {
           </button>
         </div>
       </form>
+
+      {surveyId ? (
+        <section className="space-y-3 rounded border border-base-border bg-base-surface p-4">
+          <h2 className="text-xl">Invite Participants</h2>
+          <p className="text-sm text-base-muted">Paste one email per line (or comma-separated). Invites are generated immediately.</p>
+          <label className="block">
+            <span className="mb-1 block">Participant emails</span>
+            <textarea
+              className="min-h-32 w-full rounded border border-base-border bg-base-bg p-2"
+              value={inviteEmailsText}
+              onChange={(e) => setInviteEmailsText(e.target.value)}
+              placeholder={'person1@example.com\nperson2@example.com'}
+            />
+          </label>
+          <label className="block max-w-sm">
+            <span className="mb-1 block">Optional expiration</span>
+            <input
+              type="datetime-local"
+              className="target-size w-full rounded border border-base-border bg-base-bg px-2"
+              value={inviteExpiresAtLocal}
+              onChange={(e) => setInviteExpiresAtLocal(e.target.value)}
+            />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={isSendingInvites}
+              className="target-size rounded bg-base-action px-4 py-2 text-base-actionText disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => {
+                void createBulkInvites();
+              }}
+            >
+              {isSendingInvites ? 'Creating invites...' : 'Create Invites'}
+            </button>
+            <button
+              type="button"
+              className="target-size rounded border border-base-border px-4 py-2"
+              onClick={() => {
+                void loadInvites();
+              }}
+            >
+              Refresh List
+            </button>
+          </div>
+          <p aria-live="polite" className="text-sm">
+            {inviteStatus}
+          </p>
+          <div className="overflow-x-auto rounded border border-base-border">
+            <table className="min-w-full">
+              <caption className="sr-only">Invite list</caption>
+              <thead>
+                <tr>
+                  <th className="p-2 text-left">Email</th>
+                  <th className="p-2 text-left">Status</th>
+                  <th className="p-2 text-left">Expires</th>
+                  <th className="p-2 text-left">Created</th>
+                  <th className="p-2 text-left">Link</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invites.map((invite) => {
+                  const link = `${window.location.origin}/participant/${invite.token}`;
+                  return (
+                    <tr key={invite.id} className="border-t border-base-border">
+                      <td className="p-2">{invite.email || 'No email'}</td>
+                      <td className="p-2">{invite.status}</td>
+                      <td className="p-2">{invite.expiresAt ? new Date(invite.expiresAt).toLocaleString() : 'None'}</td>
+                      <td className="p-2">{new Date(invite.createdAt).toLocaleString()}</td>
+                      <td className="p-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <a className="break-all underline" href={link}>
+                            {link}
+                          </a>
+                          <button
+                            type="button"
+                            className="target-size rounded border border-base-border px-2 py-1"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(link);
+                              setInviteStatus('Invite link copied');
+                            }}
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {invites.length === 0 ? (
+                  <tr>
+                    <td className="p-2" colSpan={5}>
+                      No invites yet.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       {showRegexHelp ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="regex-help-title">

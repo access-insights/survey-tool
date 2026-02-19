@@ -11,6 +11,10 @@ const azureAllowedTenantId = process.env.AZURE_ALLOWED_TENANT_ID;
 const azureAllowedAudience = process.env.AZURE_ALLOWED_AUDIENCE;
 const azureIssuer = process.env.AZURE_ISSUER;
 const azureJwksUri = process.env.AZURE_JWKS_URI;
+const resendApiKey = process.env.RESEND_API_KEY;
+const emailFrom = process.env.EMAIL_FROM;
+const emailReplyTo = process.env.EMAIL_REPLY_TO;
+const participantPortalBaseUrl = process.env.PARTICIPANT_PORTAL_BASE_URL;
 const adminBootstrapEmails = (process.env.ADMIN_BOOTSTRAP_EMAILS || '')
   .split(',')
   .map((email) => email.trim().toLowerCase())
@@ -381,6 +385,63 @@ function makeConfirmationCode(id: string) {
   return `${clean.slice(0, 4)}-${clean.slice(-4)}`;
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function resolveSiteUrl() {
+  return participantPortalBaseUrl || process.env.URL || process.env.DEPLOY_PRIME_URL || 'http://localhost:8888';
+}
+
+async function sendParticipantConfirmationEmail(input: {
+  to: string;
+  surveyTitle: string;
+  confirmationCode: string;
+  completedSurveyUrl: string;
+  accountUrl: string;
+}) {
+  if (!resendApiKey || !emailFrom) return;
+
+  const safeSurveyTitle = escapeHtml(input.surveyTitle);
+  const safeConfirmationCode = escapeHtml(input.confirmationCode);
+  const safeCompletedSurveyUrl = escapeHtml(input.completedSurveyUrl);
+  const safeAccountUrl = escapeHtml(input.accountUrl);
+
+  const payload: Record<string, unknown> = {
+    from: emailFrom,
+    to: [input.to],
+    subject: `Survey confirmation: ${input.surveyTitle}`,
+    html: `
+      <p>Thank you for completing the survey.</p>
+      <p><strong>Confirmation code:</strong> ${safeConfirmationCode}</p>
+      <p><a href="${safeCompletedSurveyUrl}">View your completed survey</a></p>
+      <p><a href="${safeAccountUrl}">Go to your account</a></p>
+    `
+  };
+
+  if (emailReplyTo) {
+    payload.reply_to = emailReplyTo;
+  }
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${resendApiKey}`
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to send confirmation email');
+  }
+}
+
 export const handler: Handler = async (event) => {
   try {
     const action = event.queryStringParameters?.action;
@@ -475,7 +536,7 @@ export const handler: Handler = async (event) => {
 
       const { data: invite, error } = await supabase
         .from('invites')
-        .select('id,survey_id,status,expires_at')
+        .select('id,survey_id,token,email,status,expires_at')
         .eq('token', input.inviteToken)
         .single();
 
@@ -507,6 +568,21 @@ export const handler: Handler = async (event) => {
       if (responseError || !response) throw new Error('Failed to submit');
 
       await supabase.from('invites').update({ status: 'completed' }).eq('id', invite.id);
+      const confirmationCode = makeConfirmationCode(response.id);
+
+      if (invite.email) {
+        const siteUrl = resolveSiteUrl();
+        const accountUrl = new URL('/login', siteUrl).toString();
+        const completedSurveyUrl = new URL(`/participant/${invite.token}`, siteUrl).toString();
+        const { data: surveyRow } = await supabase.from('surveys').select('title').eq('id', invite.survey_id).maybeSingle();
+        await sendParticipantConfirmationEmail({
+          to: invite.email,
+          surveyTitle: surveyRow?.title || 'Access Insights Survey',
+          confirmationCode,
+          completedSurveyUrl,
+          accountUrl
+        }).catch(() => undefined);
+      }
 
       const webhook = process.env.WEBHOOK_COMPLETION_URL;
       if (webhook) {
@@ -517,7 +593,7 @@ export const handler: Handler = async (event) => {
         }).catch(() => undefined);
       }
 
-      return json(200, { submissionId: response.id, confirmationCode: makeConfirmationCode(response.id) });
+      return json(200, { submissionId: response.id, confirmationCode });
     }
 
     const ctx = await requireAuth(event.headers.authorization);
@@ -1043,7 +1119,7 @@ export const handler: Handler = async (event) => {
       if (error || !data) throw new Error('Failed to create invite');
       await recordAudit(ctx, 'create_invite', 'invite', data.id, { surveyId: input.surveyId });
 
-      const siteUrl = process.env.URL || process.env.DEPLOY_PRIME_URL || 'http://localhost:8888';
+      const siteUrl = resolveSiteUrl();
 
       return json(200, {
         invite: {

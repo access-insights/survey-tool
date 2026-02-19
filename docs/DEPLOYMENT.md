@@ -17,6 +17,10 @@
 - `ADMIN_BOOTSTRAP_EMAILS` optional
 - `DEFAULT_ORG_ID` optional
 - `WEBHOOK_COMPLETION_URL` optional
+- `RESEND_API_KEY` optional (required for participant confirmation emails)
+- `EMAIL_FROM` optional (required for participant confirmation emails)
+- `EMAIL_REPLY_TO` optional
+- `PARTICIPANT_PORTAL_BASE_URL` optional (used for account/survey links in participant confirmation emails)
 
 ## Netlify settings
 - Build command: `npm run build`
