@@ -110,6 +110,7 @@ export function SurveyBuilderPage() {
   const [inviteExpiresAtLocal, setInviteExpiresAtLocal] = useState('');
   const [inviteStatus, setInviteStatus] = useState('');
   const [isSendingInvites, setIsSendingInvites] = useState(false);
+  const [sendingInviteId, setSendingInviteId] = useState('');
   const [invites, setInvites] = useState<Invite[]>([]);
 
   const {
@@ -287,6 +288,23 @@ export function SurveyBuilderPage() {
       setInviteStatus(`Created ${created} invite(s).${failedPart}${invalidPart}`);
     } finally {
       setIsSendingInvites(false);
+    }
+  };
+
+  const sendSingleInviteEmail = async (invite: Invite) => {
+    if (!token) return;
+    if (!invite.email) {
+      setInviteStatus('Invite has no email address.');
+      return;
+    }
+    setSendingInviteId(invite.id);
+    try {
+      await api.sendInviteEmail(token, invite.id);
+      setInviteStatus(`Invite email sent to ${invite.email}.`);
+    } catch (error) {
+      setInviteStatus(error instanceof Error ? error.message : 'Failed to send invite email.');
+    } finally {
+      setSendingInviteId('');
     }
   };
 
@@ -639,6 +657,7 @@ export function SurveyBuilderPage() {
                   <th className="p-2 text-left">Expires</th>
                   <th className="p-2 text-left">Created</th>
                   <th className="p-2 text-left">Link</th>
+                  <th className="p-2 text-left">Send</th>
                 </tr>
               </thead>
               <tbody>
@@ -667,12 +686,24 @@ export function SurveyBuilderPage() {
                           </button>
                         </div>
                       </td>
+                      <td className="p-2">
+                        <button
+                          type="button"
+                          disabled={!invite.email || sendingInviteId === invite.id}
+                          className="target-size rounded border border-base-border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-60"
+                          onClick={() => {
+                            void sendSingleInviteEmail(invite);
+                          }}
+                        >
+                          {sendingInviteId === invite.id ? 'Sending...' : 'Send Invite'}
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
                 {invites.length === 0 ? (
                   <tr>
-                    <td className="p-2" colSpan={5}>
+                    <td className="p-2" colSpan={6}>
                       No invites yet.
                     </td>
                   </tr>

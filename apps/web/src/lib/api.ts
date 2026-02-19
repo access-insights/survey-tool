@@ -40,6 +40,7 @@ export const api = {
   listInvites: (token: string, surveyId: string) => apiFetch<{ invites: Invite[] }>('listInvites', token, { surveyId }),
   createInvite: (token: string, surveyId: string, expiresAt?: string, email?: string) =>
     apiFetch<{ invite: Invite; link: string }>('createInvite', token, { surveyId, expiresAt, email }),
+  sendInviteEmail: (token: string, inviteId: string) => apiFetch<{ ok: true }>('sendInviteEmail', token, { inviteId }),
   participantLoad: (inviteToken: string) => apiFetch<{ version: SurveyVersion; inviteId: string; draftAnswers: Record<string, string | string[]> }>('participantLoad', undefined, { inviteToken }),
   participantSaveDraft: (inviteToken: string, answers: Record<string, string | string[]>) =>
     apiFetch<{ ok: true }>('participantSaveDraft', undefined, { inviteToken, answers }),

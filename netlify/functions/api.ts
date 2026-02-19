@@ -371,6 +371,9 @@ const buildSurveyFromBankSchema = z.object({
 const questionBankIdSchema = z.object({
   questionId: z.string().uuid()
 });
+const inviteIdSchema = z.object({
+  inviteId: z.string().uuid()
+});
 
 function csvEscape(value: unknown) {
   const str = String(value ?? '');
@@ -439,6 +442,49 @@ async function sendParticipantConfirmationEmail(input: {
 
   if (!response.ok) {
     throw new Error('Failed to send confirmation email');
+  }
+}
+
+async function sendSurveyInviteEmail(input: {
+  to: string;
+  surveyTitle: string;
+  inviteUrl: string;
+  expiresAt?: string | null;
+}) {
+  if (!resendApiKey || !emailFrom) {
+    throw new Error('Email service is not configured');
+  }
+
+  const safeSurveyTitle = escapeHtml(input.surveyTitle);
+  const safeInviteUrl = escapeHtml(input.inviteUrl);
+  const expiresLine = input.expiresAt ? `<p><strong>Expires:</strong> ${escapeHtml(new Date(input.expiresAt).toLocaleString())}</p>` : '';
+
+  const payload: Record<string, unknown> = {
+    from: emailFrom,
+    to: [input.to],
+    subject: `Survey invite: ${input.surveyTitle}`,
+    html: `
+      <p>You have been invited to complete a survey: <strong>${safeSurveyTitle}</strong>.</p>
+      ${expiresLine}
+      <p><a href="${safeInviteUrl}">Open survey invite</a></p>
+    `
+  };
+
+  if (emailReplyTo) {
+    payload.reply_to = emailReplyTo;
+  }
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${resendApiKey}`
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to send invite email');
   }
 }
 
@@ -1133,6 +1179,31 @@ export const handler: Handler = async (event) => {
         },
         link: `${siteUrl}/participant/${token}`
       });
+    }
+
+    if (action === 'sendInviteEmail') {
+      roleGuard(ctx, ['admin', 'creator']);
+      const input = inviteIdSchema.parse(body);
+      const { data: invite, error } = await supabase
+        .from('invites')
+        .select('id,survey_id,token,email,expires_at')
+        .eq('id', input.inviteId)
+        .single();
+      if (error || !invite) throw new Error('Invite not found');
+      await ensureSurveyAccess(ctx, invite.survey_id);
+      if (!invite.email) throw new Error('Invite has no email address');
+
+      const { data: survey } = await supabase.from('surveys').select('title').eq('id', invite.survey_id).maybeSingle();
+      const siteUrl = resolveSiteUrl();
+      const inviteUrl = `${siteUrl}/participant/${invite.token}`;
+      await sendSurveyInviteEmail({
+        to: invite.email,
+        surveyTitle: survey?.title || 'Access Insights Survey',
+        inviteUrl,
+        expiresAt: invite.expires_at
+      });
+      await recordAudit(ctx, 'send_invite_email', 'invite', invite.id, { surveyId: invite.survey_id, email: invite.email });
+      return json(200, { ok: true });
     }
 
     if (action === 'deleteSurvey') {
