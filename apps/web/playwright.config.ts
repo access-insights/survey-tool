@@ -6,9 +6,9 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:4173'
   },
   webServer: {
-    command: 'npm run dev -- --force --port 4173',
+    command: 'npm run dev -- --host 127.0.0.1 --force --port 4173',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: false,
-    timeout: 120000
+    timeout: 180000
   }
 });
